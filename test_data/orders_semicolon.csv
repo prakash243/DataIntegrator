@@ -1,0 +1,5 @@
+order_id;customer;product;quantity;unit_price;order_date
+ORD-2001;Acme Corp;Widget A;50;12.50;2026-03-01
+ORD-2002;Globex Inc;Gadget B;25;34.00;2026-03-05
+ORD-2003;Acme Corp;Widget C;100;8.75;2026-03-10
+ORD-2004;Initech;Gadget B;10;34.00;2026-03-15

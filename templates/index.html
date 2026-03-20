@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSV/JSON Converter</title>
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --primary-light: #eef2ff;
+      --success: #059669;
+      --success-light: #ecfdf5;
+      --error: #dc2626;
+      --error-light: #fef2f2;
+      --warning: #d97706;
+      --warning-light: #fffbeb;
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-300: #d1d5db;
+      --gray-400: #9ca3af;
+      --gray-500: #6b7280;
+      --gray-600: #4b5563;
+      --gray-700: #374151;
+      --gray-800: #1f2937;
+      --gray-900: #111827;
+      --radius: 8px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--gray-50);
+      color: var(--gray-800);
+      line-height: 1.5;
+    }
+
+    /* Header */
+    .header {
+      background: white;
+      border-bottom: 1px solid var(--gray-200);
+      padding: 16px 0;
+    }
+    .header-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    .logo span { color: var(--gray-400); font-weight: 400; }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--gray-100);
+      padding: 4px;
+      border-radius: var(--radius);
+    }
+    .tab {
+      padding: 8px 16px;
+      border: none;
+      background: transparent;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--gray-600);
+      transition: all 0.15s;
+    }
+    .tab:hover { color: var(--gray-800); }
+    .tab.active {
+      background: white;
+      color: var(--primary);
+      box-shadow: var(--shadow);
+    }
+
+    /* Main */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    /* Page sections */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* Convert Page */
+    .convert-layout {
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 24px;
+    }
+    @media (max-width: 900px) {
+      .convert-layout { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: white;
+      border-radius: var(--radius);
+      border: 1px solid var(--gray-200);
+      box-shadow: var(--shadow);
+    }
+    .card-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--gray-200);
+      font-weight: 600;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .card-body { padding: 20px; }
+
+    /* Upload Zone */
+    .upload-zone {
+      border: 2px dashed var(--gray-300);
+      border-radius: var(--radius);
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--gray-50);
+    }
+    .upload-zone:hover, .upload-zone.dragover {
+      border-color: var(--primary);
+      background: var(--primary-light);
+    }
+    .upload-zone.has-file {
+      border-color: var(--success);
+      background: var(--success-light);
+      border-style: solid;
+    }
+    .upload-icon {
+      font-size: 40px;
+      margin-bottom: 8px;
+    }
+    .upload-text {
+      color: var(--gray-500);
+      font-size: 14px;
+    }
+    .upload-text strong { color: var(--primary); }
+    .file-info {
+      margin-top: 8px;
+      font-size: 13px;
+      color: var(--success);
+      font-weight: 500;
+    }
+    .upload-zone input[type="file"] { display: none; }
+
+    /* Direction Toggle */
+    .direction-toggle {
+      display: flex;
+      gap: 0;
+      margin-bottom: 20px;
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .direction-btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      background: white;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--gray-600);
+      transition: all 0.15s;
+    }
+    .direction-btn:first-child { border-right: 1px solid var(--gray-200); }
+    .direction-btn.active {
+      background: var(--primary);
+      color: white;
+    }
+
+    /* Rules Panel */
+    .rule-group {
+      margin-bottom: 16px;
+    }
+    .rule-group:last-child { margin-bottom: 0; }
+    .rule-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--gray-500);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .rule-input {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--gray-200);
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+      color: var(--gray-700);
+      transition: border-color 0.15s;
+      resize: vertical;
+    }
+    .rule-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+    }
+    .rule-hint {
+      font-size: 11px;
+      color: var(--gray-400);
+      margin-top: 4px;
+    }
+
+    /* Checkbox */
+    .rule-check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--gray-600);
+      margin-bottom: 8px;
+    }
+    .rule-check input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--primary);
+    }
+
+    /* Convert Button */
+    .btn-convert {
+      width: 100%;
+      padding: 14px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-top: 20px;
+    }
+    .btn-convert:hover { background: var(--primary-hover); }
+    .btn-convert:disabled {
+      background: var(--gray-300);
+      cursor: not-allowed;
+    }
+
+    /* Result Section */
+    .result-section { margin-top: 24px; }
+    .result-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .result-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .result-status.success { background: var(--success-light); color: var(--success); }
+    .result-status.error { background: var(--error-light); color: var(--error); }
+
+    .btn-download {
+      padding: 8px 16px;
+      background: var(--success);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s;
+    }
+    .btn-download:hover { background: #047857; }
+
+    .result-stats {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .stat-item {
+      padding: 12px 16px;
+      background: var(--gray-50);
+      border-radius: 6px;
+      border: 1px solid var(--gray-200);
+    }
+    .stat-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--gray-800);
+    }
+    .stat-label {
+      font-size: 12px;
+      color: var(--gray-500);
+    }
+
+    /* Output Preview */
+    .output-preview {
+      background: var(--gray-900);
+      color: #e2e8f0;
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .output-preview-header {
+      padding: 10px 16px;
+      background: rgba(255,255,255,0.05);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--gray-400);
+    }
+    .btn-copy {
+      padding: 4px 10px;
+      background: rgba(255,255,255,0.1);
+      color: var(--gray-300);
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background 0.15s;
+    }
+    .btn-copy:hover { background: rgba(255,255,255,0.2); }
+    .output-content {
+      padding: 16px;
+      max-height: 400px;
+      overflow: auto;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* Logs */
+    .logs-section { margin-top: 16px; }
+    .logs-toggle {
+      background: none;
+      border: none;
+      color: var(--primary);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 0;
+    }
+    .logs-content {
+      margin-top: 8px;
+      padding: 12px;
+      background: var(--gray-50);
+      border-radius: 6px;
+      border: 1px solid var(--gray-200);
+      font-size: 12px;
+      font-family: monospace;
+      color: var(--gray-600);
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .logs-content .log-line { margin-bottom: 2px; }
+    .logs-content .log-rule { color: var(--primary); }
+
+    /* Jobs Page */
+    .jobs-toolbar {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .filter-select {
+      padding: 8px 12px;
+      border: 1px solid var(--gray-200);
+      border-radius: 6px;
+      font-size: 13px;
+      background: white;
+      color: var(--gray-700);
+    }
+    .btn-refresh {
+      padding: 8px 16px;
+      background: white;
+      border: 1px solid var(--gray-200);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--gray-600);
+      transition: all 0.15s;
+    }
+    .btn-refresh:hover { border-color: var(--primary); color: var(--primary); }
+
+    .jobs-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .jobs-table th {
+      text-align: left;
+      padding: 10px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--gray-500);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--gray-200);
+    }
+    .jobs-table td {
+      padding: 12px 16px;
+      font-size: 13px;
+      border-bottom: 1px solid var(--gray-100);
+      color: var(--gray-700);
+    }
+    .jobs-table tr:hover td { background: var(--gray-50); }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-completed { background: var(--success-light); color: var(--success); }
+    .badge-failed { background: var(--error-light); color: var(--error); }
+    .badge-processing { background: var(--warning-light); color: var(--warning); }
+    .badge-pending { background: var(--gray-100); color: var(--gray-500); }
+    .badge-csv { background: #dbeafe; color: #2563eb; }
+    .badge-json { background: #fef3c7; color: #d97706; }
+
+    .btn-small {
+      padding: 4px 10px;
+      background: white;
+      border: 1px solid var(--gray-200);
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--gray-600);
+      transition: all 0.15s;
+    }
+    .btn-small:hover { border-color: var(--primary); color: var(--primary); }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--gray-400);
+    }
+    .empty-state-icon { font-size: 48px; margin-bottom: 12px; }
+
+    /* Spinner */
+    .spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Hidden */
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div class="header-inner">
+    <div class="logo">CSV/JSON <span>Converter</span></div>
+    <div class="tabs">
+      <button class="tab active" data-page="convert">Convert</button>
+      <button class="tab" data-page="jobs">History</button>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- CONVERT PAGE -->
+  <div id="page-convert" class="page active">
+    <div class="convert-layout">
+
+      <!-- Left: Upload + Result -->
+      <div>
+        <!-- Direction Toggle -->
+        <div class="direction-toggle">
+          <button class="direction-btn active" data-direction="csv_to_json">CSV &rarr; JSON</button>
+          <button class="direction-btn" data-direction="json_to_csv">JSON &rarr; CSV</button>
+        </div>
+
+        <!-- Upload -->
+        <div class="card">
+          <div class="card-header">
+            <span id="upload-title">Upload CSV File</span>
+            <span id="accepted-types" style="font-size:12px;color:var(--gray-400)">.csv, .tsv, .txt</span>
+          </div>
+          <div class="card-body">
+            <div class="upload-zone" id="upload-zone">
+              <div class="upload-icon">&#128196;</div>
+              <div class="upload-text">
+                Drag & drop your file here or <strong>click to browse</strong>
+              </div>
+              <div class="file-info hidden" id="file-info"></div>
+              <input type="file" id="file-input" accept=".csv,.tsv,.txt">
+            </div>
+          </div>
+        </div>
+
+        <!-- Convert Button -->
+        <button class="btn-convert" id="btn-convert" disabled>
+          Convert File
+        </button>
+
+        <!-- Result -->
+        <div class="result-section hidden" id="result-section">
+          <div class="card">
+            <div class="card-header">
+              <div class="result-header" style="width:100%">
+                <span class="result-status" id="result-status"></span>
+                <a class="btn-download hidden" id="btn-download" href="#" target="_blank">
+                  &#11015; Download File
+                </a>
+              </div>
+            </div>
+            <div class="card-body">
+              <!-- Stats -->
+              <div class="result-stats" id="result-stats"></div>
+
+              <!-- Output Preview -->
+              <div class="output-preview">
+                <div class="output-preview-header">
+                  <span id="output-type-label">Output</span>
+                  <button class="btn-copy" id="btn-copy">Copy</button>
+                </div>
+                <div class="output-content" id="output-content"></div>
+              </div>
+
+              <!-- Logs -->
+              <div class="logs-section">
+                <button class="logs-toggle" id="logs-toggle">Show processing logs</button>
+                <div class="logs-content hidden" id="logs-content"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Rules Panel -->
+      <div>
+        <div class="card">
+          <div class="card-header">Transformation Rules</div>
+          <div class="card-body">
+
+            <div class="rule-group">
+              <div class="rule-label">Filter Rows</div>
+              <input class="rule-input" id="rule-filter" type="text"
+                     placeholder='{"department": "Engineering"}'>
+              <div class="rule-hint">Keep rows matching key:value pairs</div>
+            </div>
+
+            <div class="rule-group">
+              <div class="rule-label">Rename Columns</div>
+              <input class="rule-input" id="rule-rename" type="text"
+                     placeholder='{"old_name": "NewName"}'>
+              <div class="rule-hint">Map old column names to new names</div>
+            </div>
+
+            <div class="rule-group">
+              <div class="rule-label">Include Columns</div>
+              <input class="rule-input" id="rule-include" type="text"
+                     placeholder='["col1", "col2", "col3"]'>
+              <div class="rule-hint">Keep only these columns</div>
+            </div>
+
+            <div class="rule-group">
+              <div class="rule-label">Exclude Columns</div>
+              <input class="rule-input" id="rule-exclude" type="text"
+                     placeholder='["col_to_drop"]'>
+              <div class="rule-hint">Drop these columns</div>
+            </div>
+
+            <div class="rule-group">
+              <div class="rule-label">Column Order</div>
+              <input class="rule-input" id="rule-order" type="text"
+                     placeholder='["col2", "col1", "col3"]'>
+              <div class="rule-hint">Reorder output columns</div>
+            </div>
+
+            <div class="rule-group">
+              <div class="rule-label">Transforms</div>
+              <input class="rule-input" id="rule-transforms" type="text"
+                     placeholder='{"name": "uppercase"}'>
+              <div class="rule-hint">uppercase, lowercase, title, trim</div>
+            </div>
+
+            <div class="rule-group">
+              <div class="rule-label">Default Values</div>
+              <input class="rule-input" id="rule-defaults" type="text"
+                     placeholder='{"status": "N/A"}'>
+              <div class="rule-hint">Fill missing/empty fields</div>
+            </div>
+
+            <hr style="border:none;border-top:1px solid var(--gray-200);margin:16px 0">
+
+            <div class="rule-group" id="csv-options">
+              <div class="rule-label">CSV Options</div>
+              <div class="rule-check">
+                <input type="checkbox" id="rule-quote-data" checked>
+                <label for="rule-quote-data">Quote data fields</label>
+              </div>
+              <div class="rule-check">
+                <input type="checkbox" id="rule-quote-header">
+                <label for="rule-quote-header">Quote header row</label>
+              </div>
+              <div style="margin-top:8px">
+                <input class="rule-input" id="rule-delimiter" type="text"
+                       placeholder="," maxlength="1" style="width:60px;text-align:center">
+                <span class="rule-hint" style="margin-left:8px">Delimiter</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- JOBS PAGE -->
+  <div id="page-jobs" class="page">
+    <div class="card">
+      <div class="card-header">
+        <span>Conversion History</span>
+        <div class="jobs-toolbar" style="margin-bottom:0">
+          <select class="filter-select" id="filter-status">
+            <option value="">All Status</option>
+            <option value="completed">Completed</option>
+            <option value="failed">Failed</option>
+            <option value="processing">Processing</option>
+          </select>
+          <select class="filter-select" id="filter-direction">
+            <option value="">All Types</option>
+            <option value="csv_to_json">CSV to JSON</option>
+            <option value="json_to_csv">JSON to CSV</option>
+          </select>
+          <button class="btn-refresh" id="btn-refresh-jobs">&#8635; Refresh</button>
+        </div>
+      </div>
+      <div class="card-body" style="padding:0">
+        <div id="jobs-loading" class="empty-state hidden">
+          <div class="spinner" style="border-color:var(--gray-300);border-top-color:var(--primary);width:32px;height:32px"></div>
+        </div>
+        <div id="jobs-empty" class="empty-state hidden">
+          <div class="empty-state-icon">&#128203;</div>
+          <div>No conversion jobs found</div>
+        </div>
+        <table class="jobs-table" id="jobs-table">
+          <thead>
+            <tr>
+              <th>File</th>
+              <th>Type</th>
+              <th>Status</th>
+              <th>Rows</th>
+              <th>Date</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="jobs-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const API_BASE = '/api/mapping';
+
+// ---- State ----
+let currentDirection = 'csv_to_json';
+let selectedFile = null;
+
+// ---- DOM refs ----
+const $pages = document.querySelectorAll('.page');
+const $tabs = document.querySelectorAll('.tab');
+const $dirBtns = document.querySelectorAll('.direction-btn');
+const $uploadZone = document.getElementById('upload-zone');
+const $fileInput = document.getElementById('file-input');
+const $fileInfo = document.getElementById('file-info');
+const $uploadTitle = document.getElementById('upload-title');
+const $acceptedTypes = document.getElementById('accepted-types');
+const $btnConvert = document.getElementById('btn-convert');
+const $resultSection = document.getElementById('result-section');
+const $resultStatus = document.getElementById('result-status');
+const $resultStats = document.getElementById('result-stats');
+const $outputContent = document.getElementById('output-content');
+const $outputTypeLabel = document.getElementById('output-type-label');
+const $btnDownload = document.getElementById('btn-download');
+const $btnCopy = document.getElementById('btn-copy');
+const $logsToggle = document.getElementById('logs-toggle');
+const $logsContent = document.getElementById('logs-content');
+const $csvOptions = document.getElementById('csv-options');
+
+// ---- Tab switching ----
+$tabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    const page = tab.dataset.page;
+    $tabs.forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    $pages.forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + page).classList.add('active');
+    if (page === 'jobs') loadJobs();
+  });
+});
+
+// ---- Direction toggle ----
+$dirBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    $dirBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentDirection = btn.dataset.direction;
+    resetUpload();
+    updateUIForDirection();
+  });
+});
+
+function updateUIForDirection() {
+  if (currentDirection === 'csv_to_json') {
+    $uploadTitle.textContent = 'Upload CSV File';
+    $acceptedTypes.textContent = '.csv, .tsv, .txt';
+    $fileInput.accept = '.csv,.tsv,.txt';
+    $csvOptions.style.display = 'none';
+  } else {
+    $uploadTitle.textContent = 'Upload JSON File';
+    $acceptedTypes.textContent = '.json';
+    $fileInput.accept = '.json';
+    $csvOptions.style.display = 'block';
+  }
+}
+updateUIForDirection();
+
+// ---- File Upload ----
+$uploadZone.addEventListener('click', () => $fileInput.click());
+$uploadZone.addEventListener('dragover', e => {
+  e.preventDefault();
+  $uploadZone.classList.add('dragover');
+});
+$uploadZone.addEventListener('dragleave', () => $uploadZone.classList.remove('dragover'));
+$uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  $uploadZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+$fileInput.addEventListener('change', () => {
+  if ($fileInput.files.length) handleFile($fileInput.files[0]);
+});
+
+function handleFile(file) {
+  selectedFile = file;
+  $uploadZone.classList.add('has-file');
+  $fileInfo.textContent = `${file.name} (${formatSize(file.size)})`;
+  $fileInfo.classList.remove('hidden');
+  $btnConvert.disabled = false;
+}
+
+function resetUpload() {
+  selectedFile = null;
+  $fileInput.value = '';
+  $uploadZone.classList.remove('has-file');
+  $fileInfo.classList.add('hidden');
+  $btnConvert.disabled = true;
+  $resultSection.classList.add('hidden');
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
+// ---- Build Rules ----
+function buildRules() {
+  const rules = {};
+  const tryParse = (id) => {
+    const val = document.getElementById(id).value.trim();
+    if (!val) return null;
+    try { return JSON.parse(val); } catch { return null; }
+  };
+
+  const filter = tryParse('rule-filter');
+  if (filter) rules.filter_rules = filter;
+
+  const rename = tryParse('rule-rename');
+  if (rename) rules.column_mapping = rename;
+
+  const include = tryParse('rule-include');
+  if (include) rules.include_columns = include;
+
+  const exclude = tryParse('rule-exclude');
+  if (exclude) rules.exclude_columns = exclude;
+
+  const order = tryParse('rule-order');
+  if (order) rules.column_order = order;
+
+  const transforms = tryParse('rule-transforms');
+  if (transforms) rules.transforms = transforms;
+
+  const defaults = tryParse('rule-defaults');
+  if (defaults) rules.default_values = defaults;
+
+  // CSV options (for json_to_csv)
+  if (currentDirection === 'json_to_csv') {
+    rules.quote_data = document.getElementById('rule-quote-data').checked;
+    rules.quote_header = document.getElementById('rule-quote-header').checked;
+    const delim = document.getElementById('rule-delimiter').value;
+    if (delim) rules.delimiter = delim;
+  }
+
+  return rules;
+}
+
+// ---- Convert ----
+$btnConvert.addEventListener('click', async () => {
+  if (!selectedFile) return;
+
+  $btnConvert.disabled = true;
+  $btnConvert.innerHTML = '<span class="spinner"></span> Converting...';
+  $resultSection.classList.add('hidden');
+
+  const rules = buildRules();
+  const formData = new FormData();
+  formData.append('file', selectedFile);
+  if (Object.keys(rules).length > 0) {
+    formData.append('rules', JSON.stringify(rules));
+  }
+
+  const endpoint = currentDirection === 'csv_to_json'
+    ? `${API_BASE}/file/csv-to-json/`
+    : `${API_BASE}/file/json-to-csv/`;
+
+  try {
+    const resp = await fetch(endpoint, { method: 'POST', body: formData });
+    const data = await resp.json();
+
+    $resultSection.classList.remove('hidden');
+
+    if (resp.ok) {
+      showSuccess(data);
+    } else {
+      showError(data);
+    }
+  } catch (err) {
+    $resultSection.classList.remove('hidden');
+    showError({ error: 'Network error', details: err.message });
+  } finally {
+    $btnConvert.disabled = false;
+    $btnConvert.innerHTML = 'Convert File';
+  }
+});
+
+function showSuccess(data) {
+  $resultStatus.className = 'result-status success';
+  $resultStatus.innerHTML = '&#10003; Completed';
+
+  // Stats
+  $resultStats.innerHTML = `
+    <div class="stat-item"><div class="stat-value">${data.rows_processed}</div><div class="stat-label">Rows</div></div>
+    <div class="stat-item"><div class="stat-value">${data.columns_count}</div><div class="stat-label">Columns</div></div>
+    <div class="stat-item"><div class="stat-value">${data.output_filename}</div><div class="stat-label">Output File</div></div>
+  `;
+
+  // Output preview
+  const outType = currentDirection === 'csv_to_json' ? 'JSON' : 'CSV';
+  $outputTypeLabel.textContent = outType + ' Output';
+  $outputContent.textContent = data.output;
+
+  // Download
+  if (data.download_url) {
+    $btnDownload.href = data.download_url;
+    $btnDownload.classList.remove('hidden');
+  } else {
+    $btnDownload.classList.add('hidden');
+  }
+
+  // Logs
+  showLogs(data.logs || []);
+}
+
+function showError(data) {
+  $resultStatus.className = 'result-status error';
+  $resultStatus.innerHTML = '&#10007; Failed';
+  $resultStats.innerHTML = '';
+  $outputTypeLabel.textContent = 'Error';
+  $outputContent.textContent = data.details || data.error || 'Unknown error';
+  $btnDownload.classList.add('hidden');
+  showLogs([]);
+}
+
+function showLogs(logs) {
+  if (!logs.length) {
+    $logsToggle.classList.add('hidden');
+    $logsContent.classList.add('hidden');
+    return;
+  }
+  $logsToggle.classList.remove('hidden');
+  $logsContent.innerHTML = logs.map(l => {
+    const cls = l.startsWith('Rule') ? 'log-rule' : '';
+    return `<div class="log-line ${cls}">${escapeHtml(l)}</div>`;
+  }).join('');
+}
+
+$logsToggle.addEventListener('click', () => {
+  const isHidden = $logsContent.classList.toggle('hidden');
+  $logsToggle.textContent = isHidden ? 'Show processing logs' : 'Hide processing logs';
+});
+
+// ---- Copy ----
+$btnCopy.addEventListener('click', () => {
+  navigator.clipboard.writeText($outputContent.textContent).then(() => {
+    $btnCopy.textContent = 'Copied!';
+    setTimeout(() => { $btnCopy.textContent = 'Copy'; }, 1500);
+  });
+});
+
+// ---- Jobs Page ----
+async function loadJobs() {
+  const $tbody = document.getElementById('jobs-tbody');
+  const $empty = document.getElementById('jobs-empty');
+  const $loading = document.getElementById('jobs-loading');
+  const $table = document.getElementById('jobs-table');
+
+  $loading.classList.remove('hidden');
+  $empty.classList.add('hidden');
+  $table.classList.add('hidden');
+
+  const params = new URLSearchParams();
+  const statusVal = document.getElementById('filter-status').value;
+  const dirVal = document.getElementById('filter-direction').value;
+  if (statusVal) params.set('status', statusVal);
+  if (dirVal) params.set('direction', dirVal);
+
+  try {
+    const resp = await fetch(`${API_BASE}/file/jobs/?${params}`);
+    const data = await resp.json();
+
+    $loading.classList.add('hidden');
+
+    if (!data.results || data.results.length === 0) {
+      $empty.classList.remove('hidden');
+      $table.classList.add('hidden');
+      return;
+    }
+
+    $table.classList.remove('hidden');
+    $tbody.innerHTML = data.results.map(job => {
+      const statusBadge = `<span class="badge badge-${job.status}">${job.status}</span>`;
+      const dirLabel = job.direction === 'csv_to_json'
+        ? '<span class="badge badge-csv">CSV</span> &rarr; <span class="badge badge-json">JSON</span>'
+        : '<span class="badge badge-json">JSON</span> &rarr; <span class="badge badge-csv">CSV</span>';
+      const date = new Date(job.created_at).toLocaleString();
+      const actions = job.download_url
+        ? `<a class="btn-small" href="${job.download_url}" target="_blank">&#11015; Download</a>`
+        : '<span style="color:var(--gray-400);font-size:12px">No file</span>';
+      return `<tr>
+        <td>
+          <div style="font-weight:500">${escapeHtml(job.input_filename)}</div>
+          ${job.output_filename ? `<div style="font-size:11px;color:var(--gray-400)">&rarr; ${escapeHtml(job.output_filename)}</div>` : ''}
+        </td>
+        <td>${dirLabel}</td>
+        <td>${statusBadge}</td>
+        <td>${job.rows_processed || '—'}</td>
+        <td style="font-size:12px;color:var(--gray-500)">${date}</td>
+        <td>${actions}</td>
+      </tr>`;
+    }).join('');
+
+  } catch (err) {
+    $loading.classList.add('hidden');
+    $empty.classList.remove('hidden');
+    $empty.querySelector('div:last-child').textContent = 'Failed to load jobs: ' + err.message;
+  }
+}
+
+document.getElementById('btn-refresh-jobs').addEventListener('click', loadJobs);
+document.getElementById('filter-status').addEventListener('change', loadJobs);
+document.getElementById('filter-direction').addEventListener('change', loadJobs);
+
+// ---- Utilities ----
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+[
+  {
+    "emp_id": "1001",
+    "first_name": "Alice",
+    "last_name": "Johnson",
+    "email": "alice.johnson@example.com",
+    "department": "Engineering",
+    "salary": "95000",
+    "hire_date": "2022-03-15",
+    "is_active": "true"
+  },
+  {
+    "emp_id": "1002",
+    "first_name": "Bob",
+    "last_name": "Smith",
+    "email": "bob.smith@example.com",
+    "department": "Marketing",
+    "salary": "72000",
+    "hire_date": "2021-07-22",
+    "is_active": "true"
+  },
+  {
+    "emp_id": "1003",
+    "first_name": "Charlie",
+    "last_name": "Williams",
+    "email": "charlie.w@example.com",
+    "department": "Engineering",
+    "salary": "105000",
+    "hire_date": "2020-01-10",
+    "is_active": "true"
+  },
+  {
+    "emp_id": "1004",
+    "first_name": "Diana",
+    "last_name": "Brown",
+    "email": "diana.brown@example.com",
+    "department": "HR",
+    "salary": "68000",
+    "hire_date": "2023-05-01",
+    "is_active": "true"
+  },
+  {
+    "emp_id": "1005",
+    "first_name": "Eve",
+    "last_name": "Davis",
+    "email": "eve.davis@example.com",
+    "department": "Finance",
+    "salary": "88000",
+    "hire_date": "2022-11-18",
+    "is_active": "false"
+  },
+  {
+    "emp_id": "1006",
+    "first_name": "Frank",
+    "last_name": "Miller",
+    "email": "frank.m@example.com",
+    "department": "Engineering",
+    "salary": "112000",
+    "hire_date": "2019-06-30",
+    "is_active": "true"
+  },
+  {
+    "emp_id": "1007",
+    "first_name": "Grace",
+    "last_name": "Wilson",
+    "email": "grace.wilson@example.com",
+    "department": "Marketing",
+    "salary": "75000",
+    "hire_date": "2023-02-14",
+    "is_active": "true"
+  },
+  {
+    "emp_id": "1008",
+    "first_name": "Henry",
+    "last_name": "Moore",
+    "email": "henry.moore@example.com",
+    "department": "Finance",
+    "salary": "92000",
+    "hire_date": "2021-09-05",
+    "is_active": "true"
+  },
+  {
+    "emp_id": "1009",
+    "first_name": "Iris",
+    "last_name": "Taylor",
+    "email": "iris.taylor@example.com",
+    "department": "HR",
+    "salary": "71000",
+    "hire_date": "2022-08-20",
+    "is_active": "true"
+  },
+  {
+    "emp_id": "1010",
+    "first_name": "Jack",
+    "last_name": "Anderson",
+    "email": "jack.a@example.com",
+    "department": "Engineering",
+    "salary": "98000",
+    "hire_date": "2020-12-01",
+    "is_active": "false"
+  }
+]

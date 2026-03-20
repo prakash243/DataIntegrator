@@ -1,0 +1,26 @@
+[
+  {
+    "FirstName": "ALICE",
+    "LastName": "Johnson",
+    "email": "alice.johnson@example.com",
+    "AnnualSalary": "95000"
+  },
+  {
+    "FirstName": "CHARLIE",
+    "LastName": "Williams",
+    "email": "charlie.w@example.com",
+    "AnnualSalary": "105000"
+  },
+  {
+    "FirstName": "FRANK",
+    "LastName": "Miller",
+    "email": "frank.m@example.com",
+    "AnnualSalary": "112000"
+  },
+  {
+    "FirstName": "JACK",
+    "LastName": "Anderson",
+    "email": "jack.a@example.com",
+    "AnnualSalary": "98000"
+  }
+]

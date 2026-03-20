@@ -1,0 +1,487 @@
+{
+  "info": {
+    "name": "CSV/JSON Converter API",
+    "description": "Complete API collection for CSV/JSON conversion — raw content APIs, file upload APIs with transformation rules, and job management.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8001",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Registry",
+      "item": [
+        {
+          "name": "List All Mappers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/mapping/registry/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "mapping", "registry", ""]
+            }
+          }
+        },
+        {
+          "name": "Search Mappers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/mapping/registry/?search=csv",
+              "host": ["{{base_url}}"],
+              "path": ["api", "mapping", "registry", ""],
+              "query": [
+                { "key": "search", "value": "csv" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Raw Content - CSV to JSON",
+      "item": [
+        {
+          "name": "Basic CSV (comma)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"name,age,city\\nAlice,30,New York\\nBob,25,London\\nCharlie,35,Tokyo\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/mapping/csv-to-json/", "host": ["{{base_url}}"], "path": ["api", "mapping", "csv-to-json", ""] }
+          }
+        },
+        {
+          "name": "Employees CSV",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"emp_id,first_name,last_name,email,department,salary,hire_date,is_active\\n1001,Alice,Johnson,alice.johnson@example.com,Engineering,95000,2022-03-15,true\\n1002,Bob,Smith,bob.smith@example.com,Marketing,72000,2021-07-22,true\\n1003,Charlie,Williams,charlie.w@example.com,Engineering,105000,2020-01-10,true\\n1004,Diana,Brown,diana.brown@example.com,HR,68000,2023-05-01,true\\n1005,Eve,Davis,eve.davis@example.com,Finance,88000,2022-11-18,false\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/mapping/csv-to-json/", "host": ["{{base_url}}"], "path": ["api", "mapping", "csv-to-json", ""] }
+          }
+        },
+        {
+          "name": "Semicolon Delimiter (auto-detect)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"order_id;customer;product;quantity;unit_price\\nORD-2001;Acme Corp;Widget A;50;12.50\\nORD-2002;Globex Inc;Gadget B;25;34.00\\nORD-2003;Acme Corp;Widget C;100;8.75\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/mapping/csv-to-json/", "host": ["{{base_url}}"], "path": ["api", "mapping", "csv-to-json", ""] }
+          }
+        },
+        {
+          "name": "Tab Delimiter (explicit)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"id\\tname\\tvalue\\n1\\tAlpha\\t100\\n2\\tBeta\\t200\",\n  \"delimiter\": \"\\t\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/mapping/csv-to-json/", "host": ["{{base_url}}"], "path": ["api", "mapping", "csv-to-json", ""] }
+          }
+        },
+        {
+          "name": "Error - Empty Content",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"content\": \"\"\n}" },
+            "url": { "raw": "{{base_url}}/api/mapping/csv-to-json/", "host": ["{{base_url}}"], "path": ["api", "mapping", "csv-to-json", ""] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Raw Content - JSON to CSV",
+      "item": [
+        {
+          "name": "Basic JSON Array",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"[{\\\"name\\\":\\\"Alice\\\",\\\"age\\\":30,\\\"city\\\":\\\"New York\\\"},{\\\"name\\\":\\\"Bob\\\",\\\"age\\\":25,\\\"city\\\":\\\"London\\\"},{\\\"name\\\":\\\"Charlie\\\",\\\"age\\\":35,\\\"city\\\":\\\"Tokyo\\\"}]\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/mapping/json-to-csv/", "host": ["{{base_url}}"], "path": ["api", "mapping", "json-to-csv", ""] }
+          }
+        },
+        {
+          "name": "Products JSON",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"[{\\\"id\\\":1,\\\"name\\\":\\\"Laptop Pro\\\",\\\"brand\\\":\\\"TechBrand\\\",\\\"price\\\":1299.99,\\\"in_stock\\\":true},{\\\"id\\\":2,\\\"name\\\":\\\"Wireless Earbuds\\\",\\\"brand\\\":\\\"SoundMax\\\",\\\"price\\\":79.99,\\\"in_stock\\\":true},{\\\"id\\\":3,\\\"name\\\":\\\"Smart Watch\\\",\\\"brand\\\":\\\"WristTech\\\",\\\"price\\\":249.99,\\\"in_stock\\\":false}]\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/mapping/json-to-csv/", "host": ["{{base_url}}"], "path": ["api", "mapping", "json-to-csv", ""] }
+          }
+        },
+        {
+          "name": "Single JSON Object",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"{\\\"name\\\":\\\"Alice\\\",\\\"age\\\":30,\\\"city\\\":\\\"New York\\\"}\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/mapping/json-to-csv/", "host": ["{{base_url}}"], "path": ["api", "mapping", "json-to-csv", ""] }
+          }
+        },
+        {
+          "name": "Custom Column Order",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"[{\\\"name\\\":\\\"Alice\\\",\\\"age\\\":30,\\\"city\\\":\\\"New York\\\"},{\\\"name\\\":\\\"Bob\\\",\\\"age\\\":25,\\\"city\\\":\\\"London\\\"}]\",\n  \"columns\": [\"city\", \"name\", \"age\"]\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/mapping/json-to-csv/", "host": ["{{base_url}}"], "path": ["api", "mapping", "json-to-csv", ""] }
+          }
+        },
+        {
+          "name": "No Quotes on Data",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"[{\\\"name\\\":\\\"Alice\\\",\\\"age\\\":30},{\\\"name\\\":\\\"Bob\\\",\\\"age\\\":25}]\",\n  \"quote_data\": false\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/mapping/json-to-csv/", "host": ["{{base_url}}"], "path": ["api", "mapping", "json-to-csv", ""] }
+          }
+        },
+        {
+          "name": "Semicolon Delimiter",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"[{\\\"a\\\":1,\\\"b\\\":2},{\\\"a\\\":3,\\\"b\\\":4}]\",\n  \"delimiter\": \";\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/mapping/json-to-csv/", "host": ["{{base_url}}"], "path": ["api", "mapping", "json-to-csv", ""] }
+          }
+        },
+        {
+          "name": "Error - Invalid JSON",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"content\": \"this is not valid json\"\n}" },
+            "url": { "raw": "{{base_url}}/api/mapping/json-to-csv/", "host": ["{{base_url}}"], "path": ["api", "mapping", "json-to-csv", ""] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Raw Content - Generic Convert",
+      "item": [
+        {
+          "name": "CSV to JSON via Convert",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mapping_function\": \"csv_to_json\",\n  \"content\": \"name,age\\nAlice,30\\nBob,25\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/mapping/convert/", "host": ["{{base_url}}"], "path": ["api", "mapping", "convert", ""] }
+          }
+        },
+        {
+          "name": "JSON to CSV via Convert",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mapping_function\": \"json_to_csv\",\n  \"content\": \"[{\\\"x\\\":1,\\\"y\\\":2},{\\\"x\\\":3,\\\"y\\\":4}]\",\n  \"delimiter\": \";\",\n  \"quote_data\": false\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/mapping/convert/", "host": ["{{base_url}}"], "path": ["api", "mapping", "convert", ""] }
+          }
+        },
+        {
+          "name": "Error - Unknown Mapper",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mapping_function\": \"nonexistent\",\n  \"content\": \"test\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/mapping/convert/", "host": ["{{base_url}}"], "path": ["api", "mapping", "convert", ""] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "File Upload - CSV to JSON",
+      "item": [
+        {
+          "name": "Upload CSV (no rules)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "", "description": "Select employees.csv or products.csv from test_data/" }
+              ]
+            },
+            "url": { "raw": "{{base_url}}/api/mapping/file/csv-to-json/", "host": ["{{base_url}}"], "path": ["api", "mapping", "file", "csv-to-json", ""] }
+          }
+        },
+        {
+          "name": "Upload CSV with Filter Rule",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "", "description": "Select employees.csv from test_data/" },
+                { "key": "rules", "value": "{\n  \"filter_rules\": {\"department\": \"Engineering\"}\n}", "type": "text" }
+              ]
+            },
+            "url": { "raw": "{{base_url}}/api/mapping/file/csv-to-json/", "host": ["{{base_url}}"], "path": ["api", "mapping", "file", "csv-to-json", ""] }
+          }
+        },
+        {
+          "name": "Upload CSV with Column Rename",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "", "description": "Select employees.csv from test_data/" },
+                { "key": "rules", "value": "{\n  \"column_mapping\": {\"first_name\": \"FirstName\", \"last_name\": \"LastName\", \"salary\": \"AnnualSalary\"}\n}", "type": "text" }
+              ]
+            },
+            "url": { "raw": "{{base_url}}/api/mapping/file/csv-to-json/", "host": ["{{base_url}}"], "path": ["api", "mapping", "file", "csv-to-json", ""] }
+          }
+        },
+        {
+          "name": "Upload CSV with Include Columns",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "", "description": "Select employees.csv from test_data/" },
+                { "key": "rules", "value": "{\n  \"include_columns\": [\"first_name\", \"last_name\", \"email\", \"department\"]\n}", "type": "text" }
+              ]
+            },
+            "url": { "raw": "{{base_url}}/api/mapping/file/csv-to-json/", "host": ["{{base_url}}"], "path": ["api", "mapping", "file", "csv-to-json", ""] }
+          }
+        },
+        {
+          "name": "Upload CSV with Transforms",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "", "description": "Select employees.csv from test_data/" },
+                { "key": "rules", "value": "{\n  \"transforms\": {\"first_name\": \"uppercase\", \"department\": \"lowercase\", \"email\": \"trim\"}\n}", "type": "text" }
+              ]
+            },
+            "url": { "raw": "{{base_url}}/api/mapping/file/csv-to-json/", "host": ["{{base_url}}"], "path": ["api", "mapping", "file", "csv-to-json", ""] }
+          }
+        },
+        {
+          "name": "Upload CSV with ALL Rules Combined",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "", "description": "Select employees.csv from test_data/" },
+                { "key": "rules", "value": "{\n  \"filter_rules\": {\"department\": \"Engineering\"},\n  \"column_mapping\": {\"first_name\": \"FirstName\", \"last_name\": \"LastName\", \"salary\": \"AnnualSalary\"},\n  \"include_columns\": [\"FirstName\", \"LastName\", \"email\", \"AnnualSalary\"],\n  \"transforms\": {\"FirstName\": \"uppercase\", \"email\": \"lowercase\"},\n  \"column_order\": [\"FirstName\", \"LastName\", \"email\", \"AnnualSalary\"]\n}", "type": "text" }
+              ]
+            },
+            "url": { "raw": "{{base_url}}/api/mapping/file/csv-to-json/", "host": ["{{base_url}}"], "path": ["api", "mapping", "file", "csv-to-json", ""] }
+          }
+        },
+        {
+          "name": "Error - Wrong File Type",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "", "description": "Select any .pdf or .json file" }
+              ]
+            },
+            "url": { "raw": "{{base_url}}/api/mapping/file/csv-to-json/", "host": ["{{base_url}}"], "path": ["api", "mapping", "file", "csv-to-json", ""] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "File Upload - JSON to CSV",
+      "item": [
+        {
+          "name": "Upload JSON (no rules)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "", "description": "Select sample.json from test_data/" }
+              ]
+            },
+            "url": { "raw": "{{base_url}}/api/mapping/file/json-to-csv/", "host": ["{{base_url}}"], "path": ["api", "mapping", "file", "json-to-csv", ""] }
+          }
+        },
+        {
+          "name": "Upload JSON with Rename + Exclude",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "", "description": "Select sample.json from test_data/" },
+                { "key": "rules", "value": "{\n  \"column_mapping\": {\"name\": \"Product Name\", \"brand\": \"Brand\", \"price\": \"Price (USD)\"},\n  \"exclude_columns\": [\"id\"],\n  \"column_order\": [\"Product Name\", \"Brand\", \"Price (USD)\", \"in_stock\"]\n}", "type": "text" }
+              ]
+            },
+            "url": { "raw": "{{base_url}}/api/mapping/file/json-to-csv/", "host": ["{{base_url}}"], "path": ["api", "mapping", "file", "json-to-csv", ""] }
+          }
+        },
+        {
+          "name": "Upload JSON with Transform + Defaults",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "", "description": "Select sample.json from test_data/" },
+                { "key": "rules", "value": "{\n  \"transforms\": {\"brand\": \"uppercase\"},\n  \"default_values\": {\"discount\": \"0%\"},\n  \"quote_data\": false\n}", "type": "text" }
+              ]
+            },
+            "url": { "raw": "{{base_url}}/api/mapping/file/json-to-csv/", "host": ["{{base_url}}"], "path": ["api", "mapping", "file", "json-to-csv", ""] }
+          }
+        },
+        {
+          "name": "Upload JSON with ALL Rules Combined",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "", "description": "Select sample.json from test_data/" },
+                { "key": "rules", "value": "{\n  \"column_mapping\": {\"name\": \"Product Name\", \"brand\": \"Brand\", \"price\": \"Price (USD)\"},\n  \"exclude_columns\": [\"id\"],\n  \"transforms\": {\"Brand\": \"uppercase\"},\n  \"default_values\": {\"in_stock\": \"unknown\"},\n  \"column_order\": [\"Product Name\", \"Brand\", \"Price (USD)\", \"in_stock\"],\n  \"delimiter\": \";\",\n  \"quote_data\": false\n}", "type": "text" }
+              ]
+            },
+            "url": { "raw": "{{base_url}}/api/mapping/file/json-to-csv/", "host": ["{{base_url}}"], "path": ["api", "mapping", "file", "json-to-csv", ""] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Job Management",
+      "item": [
+        {
+          "name": "List All Jobs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/mapping/file/jobs/", "host": ["{{base_url}}"], "path": ["api", "mapping", "file", "jobs", ""] }
+          }
+        },
+        {
+          "name": "List Completed Jobs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/mapping/file/jobs/?status=completed",
+              "host": ["{{base_url}}"],
+              "path": ["api", "mapping", "file", "jobs", ""],
+              "query": [{ "key": "status", "value": "completed" }]
+            }
+          }
+        },
+        {
+          "name": "List Failed Jobs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/mapping/file/jobs/?status=failed",
+              "host": ["{{base_url}}"],
+              "path": ["api", "mapping", "file", "jobs", ""],
+              "query": [{ "key": "status", "value": "failed" }]
+            }
+          }
+        },
+        {
+          "name": "List CSV-to-JSON Jobs Only",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/mapping/file/jobs/?direction=csv_to_json",
+              "host": ["{{base_url}}"],
+              "path": ["api", "mapping", "file", "jobs", ""],
+              "query": [{ "key": "direction", "value": "csv_to_json" }]
+            }
+          }
+        },
+        {
+          "name": "Get Job Detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/mapping/file/jobs/PASTE-JOB-ID-HERE/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "mapping", "file", "jobs", "PASTE-JOB-ID-HERE", ""]
+            },
+            "description": "Replace PASTE-JOB-ID-HERE with an actual job_id from the list endpoint."
+          }
+        },
+        {
+          "name": "Download Output File",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/mapping/file/jobs/PASTE-JOB-ID-HERE/download/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "mapping", "file", "jobs", "PASTE-JOB-ID-HERE", "download", ""]
+            },
+            "description": "Replace PASTE-JOB-ID-HERE with a completed job_id. Use 'Send and Download' to save the file."
+          }
+        }
+      ]
+    }
+  ]
+}

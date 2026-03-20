@@ -1,0 +1,11 @@
+services:
+  web:
+    build: .
+    ports:
+      - "8001:8000"
+    volumes:
+      - .:/app
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=django-insecure-dev-key-change-in-production
+    command: python manage.py runserver 0.0.0.0:8000

@@ -457,11 +457,12 @@ Rules are passed as a JSON string in the `rules` field of file upload endpoints.
 | Rule | Type | Example | Description |
 |------|------|---------|-------------|
 | `filter_rules` | `{"col": "val"}` | `{"department": "Engineering"}` | Keep only rows where column equals value (case-insensitive) |
+| `add_columns` | `{"col": "val"}` | `{"region": "US", "status": "active"}` | Add new columns with a default value to every row |
 | `column_mapping` | `{"old": "new"}` | `{"first_name": "FirstName"}` | Rename columns |
 | `include_columns` | `["col1", "col2"]` | `["name", "email"]` | Keep only these columns (drop all others) |
 | `exclude_columns` | `["col"]` | `["id", "internal_code"]` | Drop these specific columns |
 | `default_values` | `{"col": "val"}` | `{"status": "N/A"}` | Fill missing or empty values with defaults |
-| `transforms` | `{"col": "type"}` | `{"name": "uppercase"}` | Transform values per column |
+| `transforms` | `{"col": "type"}` or `{"col": {"type": "...", ...}}` | `{"name": "uppercase"}` or `{"tags": {"type": "to_list", "separator": "\|"}}` | Transform values per column (see Transform Types below) |
 | `column_order` | `["col2", "col1"]` | `["name", "age", "city"]` | Reorder output columns |
 | `delimiter` | `string` | `";"` | CSV delimiter (JSON->CSV only) |
 | `quotechar` | `string` | `"'"` | Quote character |
@@ -477,6 +478,52 @@ Rules are passed as a JSON string in the `rules` field of file upload endpoints.
 | `title` | Convert to Title Case | `alice johnson` -> `Alice Johnson` |
 | `trim` | Strip leading/trailing whitespace | `" alice "` -> `"alice"` |
 | `strip` | Same as trim | `" alice "` -> `"alice"` |
+| `to_list` | Split string into a list/array | `"red, green, blue"` -> `["red", "green", "blue"]` |
+| `to_char_list` | Split string into individual characters | `"Laptop Pro"` -> `["L", "a", "p", "t", "o", "p", " ", "P", "r", "o"]` |
+
+#### `to_list` Transform
+
+Splits a string value into a list (JSON array). Whitespace around each item is trimmed.
+
+**Simple form** — splits by comma (default separator):
+
+```json
+{
+  "transforms": {
+    "tags": "to_list"
+  }
+}
+```
+
+`"red, green, blue"` -> `["red", "green", "blue"]`
+
+**Dict form** — custom separator:
+
+```json
+{
+  "transforms": {
+    "tags": {"type": "to_list", "separator": "|"}
+  }
+}
+```
+
+`"red|green|blue"` -> `["red", "green", "blue"]`
+
+The dict form can also be used with other transforms if needed in the future. Currently only `to_list` supports extra parameters.
+
+#### `to_char_list` Transform
+
+Splits a string into a list of individual characters.
+
+```json
+{
+  "transforms": {
+    "name": "to_char_list"
+  }
+}
+```
+
+`"Laptop Pro"` -> `["L", "a", "p", "t", "o", "p", " ", "P", "r", "o"]`
 
 ### Rules Processing Order
 
@@ -485,14 +532,15 @@ Rules are applied in this fixed sequence (see `apps/mapping/rules.py`):
 | Step | Rule | Uses column names | What happens |
 |------|------|-------------------|-------------|
 | 1 | `filter_rules` | **Original** | Rows are filtered first, reducing data before any other operation |
-| 2 | `column_mapping` | **Original → New** | Columns are renamed — all subsequent rules must use the **new** names |
-| 3 | `include_columns` | **New** (after rename) | Only listed columns are kept, everything else is dropped |
-| 4 | `exclude_columns` | **New** (after rename) | Listed columns are dropped |
-| 5 | `default_values` | **New** (after rename) | Missing or empty values are filled with defaults |
-| 6 | `transforms` | **New** (after rename) | Value transformations are applied per column |
-| 7 | `column_order` | **New** (after rename) | Output columns are reordered |
+| 2 | `add_columns` | **Original** | New columns are added with default values to every row |
+| 3 | `column_mapping` | **Original → New** | Columns are renamed — all subsequent rules must use the **new** names |
+| 4 | `include_columns` | **New** (after rename) | Only listed columns are kept, everything else is dropped |
+| 5 | `exclude_columns` | **New** (after rename) | Listed columns are dropped |
+| 6 | `default_values` | **New** (after rename) | Missing or empty values are filled with defaults |
+| 7 | `transforms` | **New** (after rename) | Value transformations are applied per column |
+| 8 | `column_order` | **New** (after rename) | Output columns are reordered |
 
-> **Key detail:** The order matters because renaming happens at step 2. Rules in steps 3–7 must reference the **new** column names (e.g., `"FirstName"`, not `"first_name"`). Only `filter_rules` (step 1) uses the **original** column names since it runs before the rename.
+> **Key detail:** The order matters because renaming happens at step 3. Rules in steps 4–8 must reference the **new** column names (e.g., `"FirstName"`, not `"first_name"`). `filter_rules` (step 1) and `add_columns` (step 2) use the **original** column names since they run before the rename.
 
 ### How Rules Flow Through the Code
 
@@ -1082,7 +1130,7 @@ The collection uses `{{base_url}}` = `http://localhost:8001`. To change it:
 - **Job tracking** — Every file conversion is tracked with status, logs, rules, and timestamps
 - **Output file storage** — Input and output files saved to `media/conversions/<job_id>/`
 - **Downloadable results** — Download converted files via the job download endpoint
-- **Transformation rules engine** — Filter, rename, include/exclude, reorder, transform, and set defaults
+- **Transformation rules engine** — Filter, rename, include/exclude, reorder, transform (uppercase, lowercase, title, trim, to_list), and set defaults
 - **Auto-detect CSV delimiter** — Comma, tab, semicolon, or pipe
 - **Single object handling** — JSON to CSV accepts both `{}` and `[{}]`
 - **Full key collection** — All unique keys across all JSON objects become CSV columns

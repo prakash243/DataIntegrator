@@ -1,0 +1,85 @@
+[
+  {
+    "id": "1",
+    "name": "Laptop Pro",
+    "brand": [
+      "T",
+      "e",
+      "c",
+      "h",
+      "B",
+      "r",
+      "a",
+      "n",
+      "d"
+    ],
+    "price": "1299.99",
+    "in_stock": "True"
+  },
+  {
+    "id": "2",
+    "name": "Wireless Earbuds",
+    "brand": [
+      "S",
+      "o",
+      "u",
+      "n",
+      "d",
+      "M",
+      "a",
+      "x"
+    ],
+    "price": "79.99",
+    "in_stock": "True"
+  },
+  {
+    "id": "3",
+    "name": "Smart Watch",
+    "brand": [
+      "W",
+      "r",
+      "i",
+      "s",
+      "t",
+      "T",
+      "e",
+      "c",
+      "h"
+    ],
+    "price": "249.99",
+    "in_stock": "False"
+  },
+  {
+    "id": "4",
+    "name": "Tablet Mini",
+    "brand": [
+      "T",
+      "e",
+      "c",
+      "h",
+      "B",
+      "r",
+      "a",
+      "n",
+      "d"
+    ],
+    "price": "449.99",
+    "in_stock": "True"
+  },
+  {
+    "id": "5",
+    "name": "Bluetooth Speaker",
+    "brand": [
+      "S",
+      "o",
+      "u",
+      "n",
+      "d",
+      "M",
+      "a",
+      "x"
+    ],
+    "price": "59.99",
+    "in_stock": "True"
+  }
+]

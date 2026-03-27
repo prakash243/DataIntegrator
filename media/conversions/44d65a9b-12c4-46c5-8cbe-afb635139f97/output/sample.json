@@ -1,0 +1,42 @@
+[
+  {
+    "id": "1",
+    "name": "Laptop Pro",
+    "brand": "TechBrand",
+    "price": "1299.99",
+    "in_stock": "True",
+    "test": "test"
+  },
+  {
+    "id": "2",
+    "name": "Wireless Earbuds",
+    "brand": "SoundMax",
+    "price": "79.99",
+    "in_stock": "True",
+    "test": "test"
+  },
+  {
+    "id": "3",
+    "name": "Smart Watch",
+    "brand": "WristTech",
+    "price": "249.99",
+    "in_stock": "False",
+    "test": "test"
+  },
+  {
+    "id": "4",
+    "name": "Tablet Mini",
+    "brand": "TechBrand",
+    "price": "449.99",
+    "in_stock": "True",
+    "test": "test"
+  },
+  {
+    "id": "5",
+    "name": "Bluetooth Speaker",
+    "brand": "SoundMax",
+    "price": "59.99",
+    "in_stock": "True",
+    "test": "test"
+  }
+]

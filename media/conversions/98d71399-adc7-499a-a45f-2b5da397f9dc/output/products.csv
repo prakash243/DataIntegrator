@@ -1,0 +1,6 @@
+sku,product_name,category,price,stock_qty,supplier
+"SKU-001","['W', 'i', 'r', 'e', 'l', 'e', 's', 's', ' ', 'M', 'o', 'u', 's', 'e']","Electronics","29.99","150","TechCorp"
+"SKU-002","['U', 'S', 'B', '-', 'C', ' ', 'H', 'u', 'b']","Electronics","49.99","85","TechCorp"
+"SKU-003","['S', 't', 'a', 'n', 'd', 'i', 'n', 'g', ' ', 'D', 'e', 's', 'k']","Furniture","399.00","12","OfficePro"
+"SKU-004","['M', 'e', 'c', 'h', 'a', 'n', 'i', 'c', 'a', 'l', ' ', 'K', 'e', 'y', 'b', 'o', 'a', 'r', 'd']","Electronics","89.99","200","KeyMaster"
+"SKU-005","['M', 'o', 'n', 'i', 't', 'o', 'r', ' ', 'A', 'r', 'm']","Furniture","129.99","45","OfficePro"

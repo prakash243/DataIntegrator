@@ -1,0 +1,11 @@
+emp_id,first_name,last_name,email,department,salary,hire_date,is_active
+"1001","Alice","Johnson","alice.johnson@example.com","Engineering","95000","2022-03-15","true"
+"1002","Bob","Smith","bob.smith@example.com","Marketing","72000","2021-07-22","true"
+"1003","Charlie","Williams","charlie.w@example.com","Engineering","105000","2020-01-10","true"
+"1004","Diana","Brown","diana.brown@example.com","HR","68000","2023-05-01","true"
+"1005","Eve","Davis","eve.davis@example.com","Finance","88000","2022-11-18","false"
+"1006","Frank","Miller","frank.m@example.com","Engineering","112000","2019-06-30","true"
+"1007","Grace","Wilson","grace.wilson@example.com","Marketing","75000","2023-02-14","true"
+"1008","Henry","Moore","henry.moore@example.com","Finance","92000","2021-09-05","true"
+"1009","Iris","Taylor","iris.taylor@example.com","HR","71000","2022-08-20","true"
+"1010","Jack","Anderson","jack.a@example.com","Engineering","98000","2020-12-01","false"

@@ -480,17 +480,32 @@ Rules are passed as a JSON string in the `rules` field of file upload endpoints.
 
 ### Rules Processing Order
 
-Rules are applied in this sequence:
+Rules are applied in this fixed sequence (see `apps/mapping/rules.py`):
 
-1. **filter_rules** — Filter rows first (reduces data before other operations)
-2. **column_mapping** — Rename columns (subsequent rules use new names)
-3. **include_columns** — Keep only specified columns
-4. **exclude_columns** — Drop specified columns
-5. **default_values** — Fill missing/empty values
-6. **transforms** — Apply value transformations
-7. **column_order** — Reorder output columns
+| Step | Rule | Uses column names | What happens |
+|------|------|-------------------|-------------|
+| 1 | `filter_rules` | **Original** | Rows are filtered first, reducing data before any other operation |
+| 2 | `column_mapping` | **Original → New** | Columns are renamed — all subsequent rules must use the **new** names |
+| 3 | `include_columns` | **New** (after rename) | Only listed columns are kept, everything else is dropped |
+| 4 | `exclude_columns` | **New** (after rename) | Listed columns are dropped |
+| 5 | `default_values` | **New** (after rename) | Missing or empty values are filled with defaults |
+| 6 | `transforms` | **New** (after rename) | Value transformations are applied per column |
+| 7 | `column_order` | **New** (after rename) | Output columns are reordered |
+
+> **Key detail:** The order matters because renaming happens at step 2. Rules in steps 3–7 must reference the **new** column names (e.g., `"FirstName"`, not `"first_name"`). Only `filter_rules` (step 1) uses the **original** column names since it runs before the rename.
+
+### How Rules Flow Through the Code
+
+1. **Frontend** — User configures rules in the sidebar (JSON text inputs). The **Rules Payload** preview shows the live JSON that will be sent.
+2. **Request** — Rules are sent as a JSON string in the `rules` form field alongside the uploaded file (`multipart/form-data`).
+3. **View** (`views_file.py`) — Parses the rules JSON string and passes it to the mapper function.
+4. **Mapper** (`csv_to_json_file.py` / `json_to_csv_file.py`) — Parses the file content into a list of row dicts, then calls `apply_rules(rows, rules, logs)`.
+5. **Rules Engine** (`rules.py`) — Applies each rule in order, mutating the row list and appending log messages.
+6. **Response** — Returns the converted output, processing logs, row/column counts, and a download URL.
 
 ### Example: Combining Multiple Rules
+
+Given `employees.csv` with 10 rows and 8 columns:
 
 ```json
 {
@@ -503,13 +518,31 @@ Rules are applied in this sequence:
 }
 ```
 
-This will:
-1. Keep only Engineering department rows
-2. Rename `first_name` -> `FirstName`, `salary` -> `AnnualPay`
-3. Keep only `FirstName`, `email`, `AnnualPay` columns
-4. Uppercase all first names, lowercase all emails
-5. Fill any empty `AnnualPay` values with `"0"`
-6. Output columns in order: FirstName, email, AnnualPay
+**Step-by-step processing:**
+
+| Step | Rule | Before | After |
+|------|------|--------|-------|
+| 1 | `filter_rules` | 10 rows, 8 columns | 4 rows (only `department = "Engineering"`), 8 columns |
+| 2 | `column_mapping` | columns: `first_name`, `salary`, ... | columns: `FirstName`, `AnnualPay`, ... |
+| 3 | `include_columns` | 8 columns | 3 columns: `FirstName`, `email`, `AnnualPay` |
+| 4 | `transforms` | `FirstName: "alice"`, `email: "Alice@Co.COM"` | `FirstName: "ALICE"`, `email: "alice@co.com"` |
+| 5 | `default_values` | `AnnualPay: ""` (empty) | `AnnualPay: "0"` |
+| 6 | `column_order` | order: `FirstName, email, AnnualPay` | same (already in desired order) |
+
+**Result:** 4 rows, 3 columns — Engineering employees with uppercased names, lowercased emails, and default pay values filled in.
+
+**Processing logs returned:**
+```
+Auto-detected delimiter: ','
+Parsed 10 row(s) with 8 column(s)
+Rule [filter]: 10 -> 4 rows (filter: {'department': 'Engineering'})
+Rule [column_mapping]: Renamed 2 column(s)
+Rule [include_columns]: Keeping 3 column(s)
+Rule [transforms]: Applied transforms: {'FirstName': 'uppercase', 'email': 'lowercase'}
+Rule [default_values]: Applied defaults for: ['AnnualPay']
+Rule [column_order]: Output order: ['FirstName', 'email', 'AnnualPay']
+Output: 4 row(s) with 3 column(s)
+```
 
 ---
 
@@ -915,14 +948,64 @@ curl -o output_file.json http://localhost:8001/api/mapping/file/jobs/<job_id>/do
 
 ### Step 8: Test the Web UI
 
-Open http://localhost:8001/ in a browser. The web interface supports:
+Open http://localhost:8001/ in a browser.
 
-1. Toggle between **CSV to JSON** and **JSON to CSV** direction
-2. Drag-and-drop or browse to upload a file
-3. Configure transformation rules in the right sidebar
-4. Click **Convert File** and see the result with preview, stats, and logs
-5. Download the converted file
-6. Switch to the **History** tab to browse past conversion jobs
+#### CSV to JSON (File Upload with Dynamic Rules)
+
+1. Ensure the **CSV → JSON** toggle is selected (active by default on the left)
+2. Upload a CSV file — either **drag & drop** onto the upload zone, or **click** the zone to browse (accepts `.csv`, `.tsv`, `.txt`)
+   - Try with `test_data/employees.csv` or `test_data/orders_semicolon.csv`
+3. After upload, the **Transformation Rules** panel on the right auto-detects all columns and shows a per-column configuration card:
+   - **Checkbox** — uncheck to exclude a column from the output
+   - **Rename** — type a new name (leave blank to keep original)
+   - **Transform** — select: UPPER, lower, Title, or Trim
+   - **Default** — fill value for missing/empty data
+   - **Filter =** — keep only rows where this column equals the entered value
+4. Use the **Column Order** section to reorder output columns with the up/down arrow buttons
+5. The **Rules Payload** section shows a live JSON preview of the rules that will be sent — updates in real-time as you configure. Click **Copy** to copy the payload.
+6. Click **Convert File**
+7. View the result below:
+   - Green **Completed** badge with row count, column count, and output filename
+   - **JSON output preview** — click **Copy** to copy to clipboard
+   - Click **Show processing logs** to see step-by-step rule application details
+   - Click **Download File** to save the `.json` output
+
+**Example — Filter + Rename + Transform:**
+
+1. Upload `test_data/employees.csv` (10 rows, 8 columns detected)
+2. Uncheck the `id` checkbox to exclude it
+3. Type `FirstName` in the **Rename** field for `first_name`
+4. Select **UPPER** in the **Transform** dropdown for `first_name`
+5. Type `Engineering` in the **Filter =** field for `department`
+6. Check the **Rules Payload** preview — it should show:
+   ```json
+   {
+     "filter_rules": { "department": "Engineering" },
+     "column_mapping": { "first_name": "FirstName" },
+     "include_columns": ["FirstName", "last_name", "email", "department", "salary", "hire_date", "is_active"],
+     "transforms": { "FirstName": "uppercase" }
+   }
+   ```
+7. Click **Convert File** — result: 4 rows (Engineering only), 7 columns, first names uppercased
+
+#### JSON to CSV (File Upload with Dynamic Rules)
+
+1. Click the **JSON → CSV** toggle on the right
+2. Upload a `.json` file (e.g., `test_data/sample.json`) — columns are auto-detected from JSON keys
+3. Configure rules in the sidebar — same per-column controls as above
+4. **CSV Options** section appears at the bottom:
+   - **Quote data fields** checkbox (default: checked)
+   - **Quote header row** checkbox (default: unchecked)
+   - **Delimiter** field (e.g., `;` for semicolon-separated output)
+5. Check the **Rules Payload** preview, then click **Convert File**
+
+#### Conversion History
+
+1. Click the **History** tab in the header
+2. Browse all past conversion jobs with status, row counts, and timestamps
+3. Filter by **Status** (Completed, Failed, Processing) or **Type** (CSV to JSON, JSON to CSV)
+4. Click **Download** on any completed job to re-download the output file
+5. Click **Refresh** to reload the list
 
 ---
 

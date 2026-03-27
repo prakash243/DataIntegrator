@@ -474,6 +474,52 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* Visual Editor */
+    .ve-card { margin-top: 20px; }
+    .ve-wrapper { overflow-x: auto; max-height: 520px; }
+    .ve-wrapper::-webkit-scrollbar { height: 8px; }
+    .ve-wrapper::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 4px; }
+    .ve-table { border-collapse: collapse; width: max-content; min-width: 100%; }
+    .ve-table td { padding: 6px 10px; border: 1px solid var(--gray-200); font-size: 12px; white-space: nowrap; min-width: 140px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+    .ve-label {
+      position: sticky; left: 0; z-index: 2; background: var(--gray-100) !important;
+      font-size: 10px; font-weight: 600; color: var(--gray-500);
+      text-transform: uppercase; letter-spacing: 0.3px;
+      min-width: 76px !important; max-width: 76px !important; width: 76px;
+    }
+    .ve-header-cell { background: var(--primary-light) !important; color: var(--primary); font-weight: 700; font-size: 13px !important; }
+    .ve-header-label { background: var(--primary-light) !important; color: var(--primary) !important; }
+    .ve-data td { background: white; color: var(--gray-700); }
+    .ve-data:nth-child(even) td { background: var(--gray-50); }
+    .ve-separator td { height: 3px; padding: 0; background: var(--primary) !important; border: none; }
+    .ve-input, .ve-select {
+      width: 100%; padding: 4px 6px; border: 1px solid var(--gray-200);
+      border-radius: 3px; font-size: 11px; color: var(--gray-700); background: white;
+    }
+    .ve-input:focus, .ve-select:focus { outline: none; border-color: var(--primary); }
+    .ve-include { width: 15px; height: 15px; accent-color: var(--primary); cursor: pointer; }
+    .ve-control-cell { text-align: center; }
+    .ve-col-excluded { opacity: 0.25; pointer-events: none; }
+    td.ve-control-cell.ve-col-excluded { opacity: 0.7; pointer-events: auto; }
+
+    /* Rules Preview */
+    .rules-preview-box {
+      background: var(--gray-900); color: #a5d6ff; border-radius: 6px;
+      padding: 12px; font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+      font-size: 11px; line-height: 1.5; max-height: 250px; overflow-y: auto;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .rules-preview-box.empty { color: var(--gray-500); font-style: italic; }
+    .rules-preview-header {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;
+    }
+    .rules-preview-header .rule-label { margin-bottom: 0; }
+    .btn-copy-rules {
+      padding: 2px 8px; background: var(--gray-100); color: var(--gray-500);
+      border: 1px solid var(--gray-200); border-radius: 4px; cursor: pointer; font-size: 11px;
+    }
+    .btn-copy-rules:hover { border-color: var(--primary); color: var(--primary); }
+
     /* Hidden */
     .hidden { display: none !important; }
   </style>
@@ -519,6 +565,19 @@
               </div>
               <div class="file-info hidden" id="file-info"></div>
               <input type="file" id="file-input" accept=".csv,.tsv,.txt">
+            </div>
+          </div>
+        </div>
+
+        <!-- Visual Editor -->
+        <div class="card ve-card hidden" id="visual-editor">
+          <div class="card-header">
+            <span>Visual Rules Editor</span>
+            <span id="ve-info" style="font-size:12px;color:var(--gray-400)"></span>
+          </div>
+          <div class="card-body" style="padding:0">
+            <div class="ve-wrapper">
+              <table class="ve-table" id="ve-table"></table>
             </div>
           </div>
         </div>
@@ -619,6 +678,14 @@
 
             <hr style="border:none;border-top:1px solid var(--gray-200);margin:16px 0">
 
+            <div class="rule-group">
+              <div class="rules-preview-header">
+                <div class="rule-label">Rules Payload</div>
+                <button class="btn-copy-rules" id="btn-copy-rules">Copy</button>
+              </div>
+              <div id="rules-preview" class="rules-preview-box empty">No rules configured</div>
+            </div>
+
             <div class="rule-group" id="csv-options">
               <div class="rule-label">CSV Options</div>
               <div class="rule-check">
@@ -694,6 +761,7 @@ const API_BASE = '/api/mapping';
 // ---- State ----
 let currentDirection = 'csv_to_json';
 let selectedFile = null;
+let detectedColumns = [];
 
 // ---- DOM refs ----
 const $pages = document.querySelectorAll('.page');
@@ -770,21 +838,29 @@ $fileInput.addEventListener('change', () => {
   if ($fileInput.files.length) handleFile($fileInput.files[0]);
 });
 
-function handleFile(file) {
+async function handleFile(file) {
   selectedFile = file;
   $uploadZone.classList.add('has-file');
   $fileInfo.textContent = `${file.name} (${formatSize(file.size)})`;
   $fileInfo.classList.remove('hidden');
   $btnConvert.disabled = false;
+  if (currentDirection === 'csv_to_json') {
+    const text = await file.slice(0, 65536).text();
+    const parsed = parseCSV(text, 5);
+    if (parsed.headers.length > 0) showVisualEditor(parsed.headers, parsed.rows);
+  }
 }
 
 function resetUpload() {
   selectedFile = null;
+  detectedColumns = [];
   $fileInput.value = '';
   $uploadZone.classList.remove('has-file');
   $fileInfo.classList.add('hidden');
   $btnConvert.disabled = true;
   $resultSection.classList.add('hidden');
+  document.getElementById('visual-editor').classList.add('hidden');
+  document.getElementById('ve-table').innerHTML = '';
 }
 
 function formatSize(bytes) {
@@ -792,6 +868,124 @@ function formatSize(bytes) {
   if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
   return (bytes / 1048576).toFixed(1) + ' MB';
 }
+
+// ---- Visual Editor ----
+function escapeAttr(s) {
+  return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function parseCSV(text, maxRows) {
+  const lines = text.split(/\r?\n/);
+  if (!lines.length || !lines[0].trim()) return { headers: [], rows: [] };
+  const first = lines[0];
+  const counts = [[',',0],['\t',0],[';',0],['|',0]];
+  for (const ch of first) { for (const c of counts) { if (ch === c[0]) c[1]++; } }
+  counts.sort((a, b) => b[1] - a[1]);
+  const d = counts[0][1] > 0 ? counts[0][0] : ',';
+  function pl(line) {
+    const f = []; let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQ) { if (ch === '"' && line[i+1] === '"') { cur += '"'; i++; } else if (ch === '"') inQ = false; else cur += ch; }
+      else { if (ch === '"') inQ = true; else if (ch === d) { f.push(cur.trim()); cur = ''; } else cur += ch; }
+    }
+    f.push(cur.trim());
+    return f;
+  }
+  const headers = pl(lines[0]);
+  const rows = [];
+  for (let i = 1; i < lines.length && rows.length < maxRows; i++) {
+    if (!lines[i].trim()) continue;
+    rows.push(pl(lines[i]));
+  }
+  return { headers, rows };
+}
+
+function showVisualEditor(headers, rows) {
+  detectedColumns = headers;
+  document.getElementById('visual-editor').classList.remove('hidden');
+  document.getElementById('ve-info').textContent = headers.length + ' columns \u00b7 ' + rows.length + ' rows previewed';
+  let h = '';
+  // Include row
+  h += '<tr><td class="ve-label">Include</td>';
+  headers.forEach((c, i) => { h += '<td class="ve-control-cell" data-ve-col="' + i + '"><input type="checkbox" checked class="ve-include" data-ve-include="' + i + '"></td>'; });
+  h += '</tr>';
+  // Header row
+  h += '<tr><td class="ve-label ve-header-label">Column</td>';
+  headers.forEach((c, i) => { h += '<td class="ve-header-cell" data-ve-col="' + i + '">' + escapeHtml(c) + '</td>'; });
+  h += '</tr>';
+  // Rename row
+  h += '<tr><td class="ve-label">Rename</td>';
+  headers.forEach((c, i) => { h += '<td data-ve-col="' + i + '"><input type="text" class="ve-input" data-ve-rename="' + i + '" placeholder="' + escapeAttr(c) + '"></td>'; });
+  h += '</tr>';
+  // Transform row
+  h += '<tr><td class="ve-label">Transform</td>';
+  headers.forEach((c, i) => {
+    h += '<td data-ve-col="' + i + '"><select class="ve-select" data-ve-transform="' + i + '">' +
+      '<option value="">None</option><option value="uppercase">UPPERCASE</option>' +
+      '<option value="lowercase">lowercase</option><option value="title">Title Case</option>' +
+      '<option value="trim">Trim</option></select></td>';
+  });
+  h += '</tr>';
+  // Filter row
+  h += '<tr><td class="ve-label">Filter =</td>';
+  headers.forEach((c, i) => { h += '<td data-ve-col="' + i + '"><input type="text" class="ve-input" data-ve-filter="' + i + '" placeholder="equals..."></td>'; });
+  h += '</tr>';
+  // Default row
+  h += '<tr><td class="ve-label">Default</td>';
+  headers.forEach((c, i) => { h += '<td data-ve-col="' + i + '"><input type="text" class="ve-input" data-ve-default="' + i + '" placeholder="if empty..."></td>'; });
+  h += '</tr>';
+  // Separator
+  h += '<tr class="ve-separator"><td class="ve-label" style="background:var(--primary)!important"></td>';
+  headers.forEach(() => { h += '<td></td>'; });
+  h += '</tr>';
+  // Data rows
+  rows.forEach((row, ri) => {
+    h += '<tr class="ve-data"><td class="ve-label">' + (ri + 1) + '</td>';
+    headers.forEach((c, i) => { h += '<td data-ve-col="' + i + '">' + escapeHtml(row[i] || '') + '</td>'; });
+    h += '</tr>';
+  });
+  document.getElementById('ve-table').innerHTML = h;
+  syncVisualToInputs();
+}
+
+function syncVisualToInputs() {
+  if (!detectedColumns.length) return;
+  const filter = {}, rename = {}, transforms = {}, defaults = {};
+  const exclude = [];
+  detectedColumns.forEach((col, i) => {
+    const cb = document.querySelector('[data-ve-include="' + i + '"]');
+    if (!cb || !cb.checked) { exclude.push(col); return; }
+    const rn = (document.querySelector('[data-ve-rename="' + i + '"]') || {}).value || '';
+    const tr = (document.querySelector('[data-ve-transform="' + i + '"]') || {}).value || '';
+    const fi = (document.querySelector('[data-ve-filter="' + i + '"]') || {}).value || '';
+    const df = (document.querySelector('[data-ve-default="' + i + '"]') || {}).value || '';
+    const eff = rn.trim() || col;
+    if (fi.trim()) filter[col] = fi.trim();
+    if (rn.trim() && rn.trim() !== col) rename[col] = rn.trim();
+    if (tr) transforms[eff] = tr;
+    if (df.trim()) defaults[eff] = df.trim();
+  });
+  document.getElementById('rule-filter').value = Object.keys(filter).length ? JSON.stringify(filter) : '';
+  document.getElementById('rule-rename').value = Object.keys(rename).length ? JSON.stringify(rename) : '';
+  document.getElementById('rule-include').value = '';
+  document.getElementById('rule-exclude').value = exclude.length ? JSON.stringify(exclude) : '';
+  document.getElementById('rule-transforms').value = Object.keys(transforms).length ? JSON.stringify(transforms) : '';
+  document.getElementById('rule-defaults').value = Object.keys(defaults).length ? JSON.stringify(defaults) : '';
+  updateRulesPreview();
+}
+
+// Visual editor event delegation (set once)
+document.getElementById('ve-table').addEventListener('input', syncVisualToInputs);
+document.getElementById('ve-table').addEventListener('change', (e) => {
+  if (e.target.classList.contains('ve-include')) {
+    const col = e.target.dataset.veInclude;
+    document.getElementById('ve-table').querySelectorAll('[data-ve-col="' + col + '"]:not(.ve-control-cell)').forEach(cell => {
+      cell.classList.toggle('ve-col-excluded', !e.target.checked);
+    });
+  }
+  syncVisualToInputs();
+});
 
 // ---- Build Rules ----
 function buildRules() {
@@ -927,6 +1121,33 @@ function showLogs(logs) {
 $logsToggle.addEventListener('click', () => {
   const isHidden = $logsContent.classList.toggle('hidden');
   $logsToggle.textContent = isHidden ? 'Show processing logs' : 'Hide processing logs';
+});
+
+// ---- Rules Preview ----
+function updateRulesPreview() {
+  const el = document.getElementById('rules-preview');
+  const rules = buildRules();
+  const hasRules = Object.keys(rules).length > 0;
+  el.textContent = hasRules ? JSON.stringify(rules, null, 2) : 'No rules configured';
+  el.classList.toggle('empty', !hasRules);
+}
+
+// Listen on all rule inputs for live preview
+['rule-filter','rule-rename','rule-include','rule-exclude','rule-order','rule-transforms','rule-defaults','rule-delimiter']
+  .forEach(id => document.getElementById(id).addEventListener('input', updateRulesPreview));
+['rule-quote-data','rule-quote-header']
+  .forEach(id => document.getElementById(id).addEventListener('change', updateRulesPreview));
+
+// Copy rules payload
+document.getElementById('btn-copy-rules').addEventListener('click', () => {
+  const el = document.getElementById('rules-preview');
+  if (!el.classList.contains('empty')) {
+    navigator.clipboard.writeText(el.textContent).then(() => {
+      const btn = document.getElementById('btn-copy-rules');
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+    });
+  }
 });
 
 // ---- Copy ----

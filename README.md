@@ -1,50 +1,1849 @@
-# CSV/JSON Converter API
+# Data Integrator — JSON & CSV Converter
 
-A Django REST Framework project that provides APIs to convert data between CSV and JSON formats. Includes both raw content APIs and file upload APIs with a powerful transformation rules engine. Built with a pluggable mapping registry pattern for easy extensibility.
+A Django REST Framework application that converts between **JSON and CSV** formats using **user-defined Python rule functions**. Users upload a file, write a `def apply_rules(row):` function to modify each row, and get the converted output with a live preview.
+
+**Supported conversions:**
+- **JSON to CSV** — Upload a JSON file (array of objects), get a CSV file
+- **CSV to JSON** — Upload a CSV file, get a JSON file (array of objects)
 
 ## Quick Start
 
 ### Prerequisites
 
-- Docker and Docker Compose
+- Python 3.10+
+- Docker and Docker Compose (optional)
 
-### Run the Server
+### Run with Docker
 
 ```bash
-cd csv_json_converter
 docker compose up -d
 docker compose exec web python manage.py migrate
 ```
 
-The API will be available at **http://localhost:8001**.
-
-To view logs:
-
-```bash
-docker compose logs -f
-```
-
-To stop:
-
-```bash
-docker compose down
-```
+The app will be available at **http://localhost:8001**.
 
 ### Run without Docker (Local Development)
 
 ```bash
-cd csv_json_converter
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
-python manage.py migrate
-python manage.py runserver 8001
+python3 manage.py migrate
+python3 manage.py runserver
 ```
 
-The API will be available at **http://localhost:8001**.
+The app will be available at **http://127.0.0.1:8000**.
+
+## How It Works
+
+1. **Select direction** — JSON to CSV or CSV to JSON
+2. **Upload** a file (JSON or CSV depending on direction)
+3. **Preview** the first 5 rows in a data table
+4. **Write a Python `apply_rules` function** in the code editor
+5. **Convert** and preview the output
+6. **Download** the output file
+
+### Detailed Workflow (End to End)
+
+Below is the complete request lifecycle — from opening the browser to downloading the output — with every endpoint, file, and function involved. The workflow is the same for both directions (JSON to CSV and CSV to JSON), with the direction-specific differences noted.
+
+---
+
+#### Step 1: Load the Web UI
+
+```
+Browser  ──GET /──▶  Django (converter/urls.py)
+                      │
+                      └─▶ TemplateView renders templates/index.html
+                           │
+                           └─▶ Single-page HTML returned to browser
+```
+
+**What happens:**
+- `converter/urls.py:10` — routes `GET /` to `TemplateView(template_name="index.html")`
+- `templates/index.html` — contains the full UI (HTML + CSS + JavaScript), no frameworks
+- The browser renders two tabs: **Convert** (active) and **History**
+
+---
+
+#### Step 1b: Select Conversion Direction (Client-Side Only)
+
+```
+User clicks "JSON to CSV" or "CSV to JSON" button
+  │
+  └─▶ index.html → direction switching handler
+       │
+       ├─▶ Sets `currentDirection` to "json_to_csv" or "csv_to_json"
+       ├─▶ Updates upload label, file extension filter, button text
+       ├─▶ Shows/hides CSV-specific options (quote data, quote header)
+       └─▶ Resets form state (clears file, preview, results)
+```
+
+**What happens:**
+- The direction selector is a toggle at the top of the Convert page
+- Switching direction changes the accepted file type (`.json` or `.csv`)
+- CSV-to-JSON mode hides the "Quote data" and "Quote header" options (not applicable)
+- The Convert button text updates to "Convert to CSV" or "Convert to JSON"
+
+---
+
+#### Step 2: Upload a File (Client-Side Only)
+
+```
+User drags file onto upload zone
+  │
+  └─▶ index.html → handleFile(file)
+       │
+       ├─▶ Stores file in JavaScript variable `selectedFile`
+       ├─▶ Shows filename and size in the upload zone
+       ├─▶ Reads first 64KB of the file: file.slice(0, 65536).text()
+       ├─▶ If JSON direction: parseJSON(text, 5) — parses JSON, extracts up to 5 rows
+       │   If CSV direction:  parseCSV(text, 5)  — parses CSV, extracts up to 5 rows
+       ├─▶ showPreview(headers, rows) — renders the data preview table
+       └─▶ Reveals Step 2 (preview) and Step 3 (code editor) cards
+            Enables the Convert button
+```
+
+**What happens:**
+- No API call is made — this is entirely client-side
+- `handleFile()` — handles file selection from click or drag-drop
+- `parseJSON()` — best-effort JSON parse for large files (reads only first 64KB)
+- `parseCSV()` — parses CSV text by splitting lines and handling quoted fields
+- `parseCSVLine()` — handles CSV quoting (double-quote escaping, delimiters inside quotes)
+- `showPreview()` — builds an HTML table showing column headers and up to 5 rows
+- The code editor is pre-filled with a template `def apply_rules(row):` function
+
+---
+
+#### Step 3: Write Transform Code (Client-Side Only)
+
+```
+User writes Python code in the code editor textarea
+  │
+  ├─▶ Optional: enters a function name (e.g., "clean_products")
+  ├─▶ Optional: toggles CSV options (quote data, quote header, delimiter)
+  └─▶ Clicks "Convert to CSV" or "Convert to JSON"
+```
+
+**What happens:**
+- The code editor supports Tab key for 4-space indentation
+- No validation happens client-side — the server validates the code
+
+---
+
+#### Step 4: Convert — POST to API
+
+The frontend determines the endpoint based on `currentDirection`:
+
+```
+JSON to CSV:
+Browser  ──POST /api/mapping/file/json-to-csv/──▶  apps/mapping/urls.py:9
+           Fields: file, function_name, rules_code,  └─▶ FileUploadJsonToCsvView
+                   delimiter, quote_data, quote_header
+
+CSV to JSON:
+Browser  ──POST /api/mapping/file/csv-to-json/──▶  apps/mapping/urls.py:10
+           Fields: file, function_name, rules_code,  └─▶ FileUploadCsvToJsonView
+                   delimiter
+```
+
+**Frontend sends the request:**
+```javascript
+const isJsonToCsv = currentDirection === 'json_to_csv';
+const endpoint = isJsonToCsv ? 'json-to-csv' : 'csv-to-json';
+
+const formData = new FormData();
+formData.append('file', selectedFile);
+formData.append('function_name', $functionName.value.trim());
+formData.append('rules_code', $codeEditor.value);
+formData.append('delimiter', ...);
+if (isJsonToCsv) {
+  formData.append('quote_data', ...);
+  formData.append('quote_header', ...);
+}
+
+const resp = await fetch(`${API_BASE}/file/${endpoint}/`, { method: 'POST', body: formData });
+```
+
+---
+
+#### Step 5: Backend Processing
+
+**JSON to CSV:** `FileUploadJsonToCsvView.post()` in `apps/mapping/views_file.py:29`
+**CSV to JSON:** `FileUploadCsvToJsonView.post()` in `apps/mapping/views_file.py:140`
+
+Both views follow the same stages:
+
+```
+FileUploadJsonToCsvView.post(request)       FileUploadCsvToJsonView.post(request)
+  │                                           │
+  ├─▶ 5a. Validate request                   ├─▶ 5a. Validate request
+  │     ├─▶ Check file exists                 │     ├─▶ Check file exists
+  │     └─▶ Check extension is .json          │     └─▶ Check extension is .csv
+  │
+  ├─▶ 5b. Create ConversionJob record (status: "pending")
+  │     └─▶ apps/mapping/models.py:14 — ConversionJob.objects.create(
+  │           direction="json_to_csv",
+  │           input_filename=filename,
+  │           function_name=function_name,
+  │           rules_code=rules_code,
+  │         )
+  │         Job gets a UUID primary key (e.g., a649949a-bf76-...)
+  │
+  ├─▶ 5c. Read file content + save input file
+  │     ├─▶ content = uploaded_file.read().decode("utf-8")
+  │     └─▶ job.input_file.save(filename, ...)
+  │         Saved to: media/conversions/<job_id>/input/<filename>
+  │
+  ├─▶ 5d. Update job status to "processing"
+  │
+  ├─▶ 5e. Call the mapper
+  │     ├─▶ JSON to CSV: json_to_csv_file_mapper(content, rules_code, delimiter, ...)
+  │     └─▶ CSV to JSON: csv_to_json_file_mapper(content, rules_code, delimiter)
+  │         (see Step 6 below)
+  │
+  ├─▶ 5f. Save output file
+  │     ├─▶ job.output_file.save(output_filename, ContentFile(output_bytes))
+  │     │   JSON to CSV: media/conversions/<job_id>/output/<filename>.csv
+  │     │   CSV to JSON: media/conversions/<job_id>/output/<filename>.json
+  │     ├─▶ job.status = "completed"
+  │     ├─▶ job.rows_processed = result["rows_processed"]
+  │     ├─▶ job.columns_count = result["columns_count"]
+  │     ├─▶ job.logs = "\n".join(result["logs"])
+  │     └─▶ job.save()
+  │
+  └─▶ 5g. Return JSON response (HTTP 201)
+        {
+          "job_id": "a649949a-...",
+          "status": "completed",
+          "direction": "json_to_csv" or "csv_to_json",
+          "input_filename": "sample.json" or "products.csv",
+          "output_filename": "sample.csv" or "products.json",
+          "rows_processed": 4,
+          "columns_count": 9,
+          "function_name": "clean_products",
+          "logs": ["Parsed 5 row(s)...", ...],
+          "output": "<CSV string or JSON string>",
+          "download_url": "http://localhost:8000/api/mapping/file/jobs/<job_id>/download/"
+        }
+```
+
+**On error** (5e or any step fails):
+```
+  └─▶ job.status = "failed"
+      job.error_message = str(e)
+      Returns HTTP 400:
+      {
+        "job_id": "...",
+        "error": "Conversion failed",
+        "details": "name 'counter' is not defined"
+      }
+```
+
+---
+
+#### Step 6a: Mapper — JSON to CSV Conversion
+
+`apps/mapping/maps/json_to_csv_file.py:15` — `json_to_csv_file_mapper()`
+
+```
+json_to_csv_file_mapper(content, rules_code, delimiter, quote_data, quote_header)
+  │
+  ├─▶ 6a. Parse JSON string
+  │     ├─▶ json.loads(content) → list of dicts
+  │     ├─▶ If single object → wrap in array
+  │     └─▶ Validate: must be a non-empty list of dicts
+  │
+  ├─▶ 6b. Collect original column names
+  │     └─▶ _collect_all_keys(data) — scans all rows, preserves insertion order
+  │         Logs: "Parsed 5 row(s) with 5 column(s)"
+  │         Logs: "Input columns: id, name, brand, price, in_stock"
+  │
+  ├─▶ 6c. Apply user rules (if rules_code is provided)
+  │     └─▶ execute_rules(data, rules_code, logs)
+  │         (see Step 7 below)
+  │
+  ├─▶ 6d. Collect final column names (may differ after apply_rules)
+  │     └─▶ _collect_all_keys(data)
+  │         Logs: "Output: 4 row(s) with 9 column(s)"
+  │         Logs: "Output columns: row_num, sku, product_name, ..."
+  │
+  └─▶ 6e. Build CSV output
+        ├─▶ Write header row (csv.writer, quoting depends on quote_header)
+        ├─▶ Write data rows (csv.DictWriter, quoting depends on quote_data)
+        │   Each value is cast to str, None becomes ""
+        └─▶ Returns:
+            {
+              "output": "<full CSV string>",
+              "logs": [...],
+              "output_type": "CSV",
+              "rows_processed": 4,
+              "columns_count": 9
+            }
+```
+
+---
+
+#### Step 6b: Mapper — CSV to JSON Conversion
+
+`apps/mapping/maps/csv_to_json_file.py:15` — `csv_to_json_file_mapper()`
+
+```
+csv_to_json_file_mapper(content, rules_code, delimiter)
+  │
+  ├─▶ 6a. Parse CSV string
+  │     ├─▶ csv.DictReader(content, delimiter=delimiter) → list of dicts
+  │     ├─▶ Extract fieldnames from header row
+  │     └─▶ Validate: must have headers and at least one data row
+  │         Note: All CSV values are strings (e.g., "1299.99", "true")
+  │
+  ├─▶ 6b. Collect original column names
+  │     └─▶ _collect_all_keys(data)
+  │         Logs: "Parsed 5 row(s) with 5 column(s)"
+  │         Logs: "Input columns: id, name, brand, price, in_stock"
+  │
+  ├─▶ 6c. Apply user rules (if rules_code is provided)
+  │     └─▶ execute_rules(data, rules_code, logs)
+  │         (see Step 7 below)
+  │
+  ├─▶ 6d. Collect final column names (may differ after apply_rules)
+  │     └─▶ _collect_all_keys(data)
+  │         Logs: "Output: 5 row(s) with 5 column(s)"
+  │
+  └─▶ 6e. Build JSON output
+        └─▶ json.dumps(data, indent=2, ensure_ascii=False)
+            Returns:
+            {
+              "output": "[{\"id\": \"1\", \"name\": \"Laptop Pro\", ...}, ...]",
+              "logs": [...],
+              "output_type": "JSON",
+              "rows_processed": 5,
+              "columns_count": 5
+            }
+```
+
+> **Important:** CSV values are always strings. In your `apply_rules` function, use `int()`, `float()`, or comparisons like `row['in_stock'] == 'true'` to convert types before they are written to JSON output.
+
+---
+
+#### Step 7: Executor — Sandboxed Code Execution
+
+`apps/mapping/executor.py:82` — `execute_rules()`
+
+```
+execute_rules(data, code, logs)
+  │
+  ├─▶ 7a. Validate code — validate_code() (executor.py:66)
+  │     ├─▶ Regex check against BLOCKED_PATTERNS:
+  │     │     import, open(), eval(), exec(), compile(),
+  │     │     globals(), locals(), getattr(), setattr(), delattr(),
+  │     │     __dunder__, os, sys, subprocess
+  │     └─▶ Check "def apply_rules(" exists in code
+  │         Raises ValueError if any check fails
+  │
+  ├─▶ 7b. Execute code in sandbox
+  │     ├─▶ safe_globals = {"__builtins__": SAFE_BUILTINS}
+  │     │   SAFE_BUILTINS only includes: str, int, float, bool, len,
+  │     │   list, dict, tuple, set, round, min, max, abs, sum, any,
+  │     │   all, enumerate, zip, sorted, reversed, range, map,
+  │     │   filter, isinstance, type, print, None, True, False
+  │     └─▶ exec(code, safe_globals)
+  │         This defines apply_rules() + any top-level variables
+  │         (e.g., counter, brand_country) in safe_globals
+  │
+  ├─▶ 7c. Extract apply_rules function
+  │     └─▶ transform_fn = safe_globals.get("apply_rules")
+  │         Verify it's callable
+  │
+  └─▶ 7d. Apply rules to each row
+        │
+        for each row in data:
+        │  ├─▶ Deep copy the row (original data is preserved)
+        │  ├─▶ result = transform_fn(row_copy)
+        │  ├─▶ If result is None → row is filtered out (skipped)
+        │  ├─▶ If result is not a dict → TypeError
+        │  ├─▶ If result is a dict → added to output
+        │  └─▶ On exception → error logged, row skipped
+        │       (stops after 10 errors)
+        │
+        └─▶ Returns: list of transformed row dicts
+            Logs: "Transform complete: 5 input -> 4 output rows"
+```
+
+---
+
+#### Step 8: Frontend Displays Result
+
+```
+Browser receives JSON response
+  │
+  ├─▶ On success → showSuccess(data)  (index.html line 593)
+  │     ├─▶ Shows green "Completed" badge
+  │     ├─▶ Shows stats: rows processed, columns count, output filename
+  │     ├─▶ Shows CSV output in dark-themed preview box
+  │     ├─▶ Shows "Download CSV" button (links to download endpoint)
+  │     └─▶ Shows collapsible processing logs
+  │
+  └─▶ On error → showError(data)  (index.html line 607)
+        ├─▶ Shows red "Failed" badge
+        └─▶ Shows error message in the output preview box
+```
+
+---
+
+#### Step 9: Download the CSV File
+
+```
+User clicks "Download CSV"
+  │
+  └─▶ GET /api/mapping/file/jobs/<job_id>/download/
+       │
+       ├─▶ converter/urls.py:9 → include("apps.mapping.urls")
+       ├─▶ apps/mapping/urls.py:14 → ConversionJobDownloadView
+       └─▶ apps/mapping/views_file.py:212
+            │
+            ├─▶ Fetch ConversionJob by UUID (404 if not found)
+            ├─▶ Check job.status == "completed" (400 if not)
+            ├─▶ Check job.output_file exists (404 if not)
+            └─▶ Return FileResponse(job.output_file, as_attachment=True)
+                 Browser downloads: sample.csv
+```
+
+---
+
+#### Step 10: View Job History
+
+```
+User clicks "History" tab
+  │
+  └─▶ loadJobs()  (index.html line 635)
+       │
+       └─▶ GET /api/mapping/file/jobs/?status=<optional filter>
+            │
+            ├─▶ apps/mapping/urls.py:12 → ConversionJobListView
+            └─▶ apps/mapping/views_file.py:140
+                 │
+                 ├─▶ ConversionJob.objects.all() (ordered by -created_at)
+                 ├─▶ Optional filters: ?status=completed, ?direction=json_to_csv
+                 ├─▶ Limit: 50 jobs max
+                 └─▶ Returns JSON:
+                      {
+                        "count": 12,
+                        "results": [
+                          {
+                            "job_id": "...",
+                            "input_filename": "sample.json",
+                            "output_filename": "sample.csv",
+                            "status": "completed",
+                            "rows_processed": 4,
+                            "function_name": "clean_products",
+                            "created_at": "2026-04-02T...",
+                            "download_url": "http://..."
+                          },
+                          ...
+                        ]
+                      }
+
+Browser renders:
+  ├─▶ Table with columns: File, Function, Status, Rows, Date, Action
+  ├─▶ Status badges (green/red/yellow)
+  ├─▶ Download links for completed jobs
+  └─▶ Filter dropdown + Refresh button
+```
+
+---
+
+#### Viewing a Single Job Detail
+
+```
+GET /api/mapping/file/jobs/<job_id>/
+  │
+  ├─▶ apps/mapping/urls.py:13 → ConversionJobDetailView
+  └─▶ apps/mapping/views_file.py:183
+       │
+       └─▶ Returns full job details including:
+            rules_code, logs, error_message, timestamps, download_url
+```
+
+---
+
+### File and Function Summary
+
+| Step | File | Function / Class | Purpose |
+|------|------|-----------------|---------|
+| 1 | `converter/urls.py:10` | `TemplateView` | Serve the web UI |
+| 1b | `templates/index.html` | direction switching handler | Switch between JSON-to-CSV and CSV-to-JSON |
+| 2 | `templates/index.html` | `handleFile()` | Handle file upload (client-side) |
+| 2 | `templates/index.html` | `parseJSON()` | Parse JSON for preview (client-side) |
+| 2 | `templates/index.html` | `parseCSV()` | Parse CSV for preview (client-side) |
+| 2 | `templates/index.html` | `parseCSVLine()` | Handle quoted CSV fields (client-side) |
+| 2 | `templates/index.html` | `showPreview()` | Render data preview table (client-side) |
+| 4 | `templates/index.html` | `$btnConvert click` | Send POST request with FormData |
+| 5 | `apps/mapping/views_file.py` | `FileUploadJsonToCsvView` | Handle JSON upload, create job, call mapper |
+| 5 | `apps/mapping/views_file.py` | `FileUploadCsvToJsonView` | Handle CSV upload, create job, call mapper |
+| 5 | `apps/mapping/models.py` | `ConversionJob` | Database model for job tracking |
+| 6a | `apps/mapping/maps/json_to_csv_file.py` | `json_to_csv_file_mapper()` | Parse JSON, apply rules, build CSV |
+| 6b | `apps/mapping/maps/csv_to_json_file.py` | `csv_to_json_file_mapper()` | Parse CSV, apply rules, build JSON |
+| 7 | `apps/mapping/executor.py` | `validate_code()` | Security validation of user code |
+| 7 | `apps/mapping/executor.py` | `execute_rules()` | Sandbox execute apply_rules on each row |
+| 8 | `templates/index.html` | `showSuccess()` | Display result with output preview |
+| 8 | `templates/index.html` | `showError()` | Display error message |
+| 9 | `apps/mapping/views_file.py` | `ConversionJobDownloadView` | Serve output file download |
+| 10 | `apps/mapping/views_file.py` | `ConversionJobListView` | List all conversion jobs |
+| 10 | `apps/mapping/views_file.py` | `ConversionJobDetailView` | Get single job details |
+| 10 | `templates/index.html` | `loadJobs()` | Fetch and render job history (client-side) |
+
+### Apply Rules Function
+
+Users write a `def apply_rules(row):` function that receives each row as a Python dict and returns the modified dict. Return `None` to filter a row out.
+
+```python
+def apply_rules(row):
+    # Rename columns
+    row['Product Name'] = row.pop('name', '').upper()
+    row['Brand Name'] = row.pop('brand', '')
+
+    # Add new columns
+    row['category'] = 'Electronics'
+    row['discounted_price'] = round(float(row['price']) * 0.9, 2)
+
+    # Remove a column
+    del row['in_stock']
+
+    # Filter out rows (return None to skip)
+    if row.get('price') and float(row['price']) < 10:
+        return None
+
+    return row
+```
+
+**Available builtins:** `str`, `int`, `float`, `bool`, `len`, `list`, `dict`, `tuple`, `set`, `round`, `min`, `max`, `abs`, `sum`, `any`, `all`, `enumerate`, `zip`, `sorted`, `reversed`, `range`, `map`, `filter`, `isinstance`, `type`, `print`
+
+**Blocked for security:** `import`, `open`, `eval`, `exec`, `compile`, `__dunder__` attributes, `os`, `sys`, `subprocess`
+
+### Apply Rules Function Reference
+
+All examples below use `test_data/sample.json`:
+
+```json
+[
+  {"id": 1, "name": "Laptop Pro", "brand": "TechBrand", "price": 1299.99, "in_stock": true},
+  {"id": 2, "name": "Wireless Earbuds", "brand": "SoundMax", "price": 79.99, "in_stock": true},
+  {"id": 3, "name": "Smart Watch", "brand": "WristTech", "price": 249.99, "in_stock": false},
+  {"id": 4, "name": "Tablet Mini", "brand": "TechBrand", "price": 449.99, "in_stock": true},
+  {"id": 5, "name": "Bluetooth Speaker", "brand": "SoundMax", "price": 59.99, "in_stock": true}
+]
+```
+
+---
+
+#### Text Transforms
+
+**Uppercase a text field:**
+```python
+def apply_rules(row):
+    row['name'] = str(row['name']).upper()
+    return row
+# "Laptop Pro" → "LAPTOP PRO"
+```
+
+**Lowercase a text field:**
+```python
+def apply_rules(row):
+    row['brand'] = str(row['brand']).lower()
+    return row
+# "TechBrand" → "techbrand"
+```
+
+**Title case:**
+```python
+def apply_rules(row):
+    row['name'] = str(row['name']).title()
+    return row
+# "wireless earbuds" → "Wireless Earbuds"
+```
+
+**Strip whitespace:**
+```python
+def apply_rules(row):
+    row['name'] = str(row['name']).strip()
+    return row
+```
+
+**Replace text in a field:**
+```python
+def apply_rules(row):
+    row['name'] = str(row['name']).replace('Pro', 'Professional')
+    return row
+# "Laptop Pro" → "Laptop Professional"
+```
+
+**Add a prefix or suffix:**
+```python
+def apply_rules(row):
+    row['name'] = 'Product: ' + str(row['name'])
+    row['brand'] = str(row['brand']) + ' Inc.'
+    return row
+# "Laptop Pro" → "Product: Laptop Pro", "TechBrand" → "TechBrand Inc."
+```
+
+**Truncate text to a max length:**
+```python
+def apply_rules(row):
+    name = str(row['name'])
+    row['name'] = name[:10] + '...' if len(name) > 10 else name
+    return row
+# "Wireless Earbuds" → "Wireless E..."
+```
+
+**Pad a field with leading zeros:**
+```python
+def apply_rules(row):
+    row['id'] = str(row['id']).zfill(5)
+    return row
+# 1 → "00001", 5 → "00005"
+```
+
+**Extract part of a string (split):**
+```python
+def apply_rules(row):
+    parts = str(row['name']).split(' ')
+    row['first_word'] = parts[0]
+    row['rest'] = ' '.join(parts[1:]) if len(parts) > 1 else ''
+    return row
+# "Laptop Pro" → first_word: "Laptop", rest: "Pro"
+```
+
+**Concatenate multiple fields:**
+```python
+def apply_rules(row):
+    row['display'] = str(row['name']) + ' by ' + str(row['brand'])
+    return row
+# "Laptop Pro by TechBrand"
+```
+
+**Reverse a string:**
+```python
+def apply_rules(row):
+    row['name'] = str(row['name'])[::-1]
+    return row
+# "Laptop Pro" → "orP potpaL"
+```
+
+**Check if text contains a substring:**
+```python
+def apply_rules(row):
+    row['is_wireless'] = 'Wireless' in str(row['name']) or 'Bluetooth' in str(row['name'])
+    return row
+# Wireless Earbuds → True, Laptop Pro → False
+```
+
+**Convert boolean to readable text:**
+```python
+def apply_rules(row):
+    row['availability'] = 'Available' if row.get('in_stock') else 'Out of Stock'
+    return row
+# true → "Available", false → "Out of Stock"
+```
+
+---
+
+#### Add New Columns
+
+**Add a column with a static value:**
+```python
+def apply_rules(row):
+    row['category'] = 'Electronics'
+    row['currency'] = 'USD'
+    return row
+```
+
+**Add a computed column:**
+```python
+def apply_rules(row):
+    row['discounted_price'] = round(float(row['price']) * 0.9, 2)
+    return row
+# price 1299.99 → discounted_price 1169.99
+```
+
+**Add tax and total:**
+```python
+def apply_rules(row):
+    price = float(row['price'])
+    row['tax'] = round(price * 0.08, 2)
+    row['total'] = round(price * 1.08, 2)
+    return row
+# price 79.99 → tax 6.40, total 86.39
+```
+
+**Add a row number / sequence:**
+```python
+counter = {'n': 0}  # must be defined above apply_rules, in the same code block
+
+def apply_rules(row):
+    counter['n'] += 1
+    row['row_num'] = counter['n']
+    return row
+# row_num: 1, 2, 3, 4, 5
+```
+
+> **Note:** Variables like `counter` must be defined **above** `def apply_rules(row):` in the same code submission. The sandbox executes the entire code block together — the `apply_rules` function can then reference those top-level variables.
+
+**Add a price tier label:**
+```python
+def apply_rules(row):
+    price = float(row['price'])
+    if price >= 1000:
+        row['tier'] = 'Premium'
+    elif price >= 200:
+        row['tier'] = 'Mid-Range'
+    else:
+        row['tier'] = 'Budget'
+    return row
+# 1299.99 → "Premium", 249.99 → "Mid-Range", 59.99 → "Budget"
+```
+
+**Add a field based on another field (lookup / mapping):**
+```python
+# Option A: lookup dict inside the function (re-created each row, but simple)
+def apply_rules(row):
+    brand_country = {
+        'TechBrand': 'USA',
+        'SoundMax': 'Japan',
+        'WristTech': 'South Korea',
+    }
+    row['country'] = brand_country.get(row.get('brand'), 'Unknown')
+    return row
+# "TechBrand" → "USA", "SoundMax" → "Japan"
+```
+
+```python
+# Option B: lookup dict above the function (created once, more efficient)
+brand_country = {'TechBrand': 'USA', 'SoundMax': 'Japan', 'WristTech': 'South Korea'}
+
+def apply_rules(row):
+    row['country'] = brand_country.get(row.get('brand'), 'Unknown')
+    return row
+```
+
+**Add a unique SKU from multiple fields:**
+```python
+def apply_rules(row):
+    row['sku'] = str(row['brand'])[:3].upper() + '-' + str(row['id']).zfill(4)
+    return row
+# TechBrand id=1 → "TEC-0001", SoundMax id=2 → "SOU-0002"
+```
+
+---
+
+#### Remove Columns
+
+**Remove a single column:**
+```python
+def apply_rules(row):
+    row.pop('in_stock', None)
+    return row
+```
+
+**Remove multiple columns:**
+```python
+def apply_rules(row):
+    for col in ['in_stock', 'brand']:
+        row.pop(col, None)
+    return row
+```
+
+**Keep only specific columns (remove everything else):**
+```python
+def apply_rules(row):
+    return {k: row[k] for k in ['id', 'name', 'price'] if k in row}
+# Output has only id, name, price columns
+```
+
+---
+
+#### Rename Columns
+
+**Rename a single column:**
+```python
+def apply_rules(row):
+    row['product_name'] = row.pop('name', '')
+    return row
+# "name" column becomes "product_name"
+```
+
+**Rename multiple columns:**
+```python
+def apply_rules(row):
+    renames = {
+        'name': 'product_name',
+        'brand': 'manufacturer',
+        'price': 'unit_price',
+        'in_stock': 'available',
+    }
+    for old, new in renames.items():
+        if old in row:
+            row[new] = row.pop(old)
+    return row
+```
+
+**Rename columns to snake_case:**
+```python
+def apply_rules(row):
+    return {k.lower().replace(' ', '_'): v for k, v in row.items()}
+```
+
+**Add a prefix to all column names:**
+```python
+def apply_rules(row):
+    return {'product_' + k: v for k, v in row.items()}
+# id → product_id, name → product_name, etc.
+```
+
+---
+
+#### Filter Rows
+
+**Filter by exact value:**
+```python
+def apply_rules(row):
+    if row.get('brand') != 'TechBrand':
+        return None
+    return row
+# Keeps only TechBrand products (id 1, 4)
+```
+
+**Filter by numeric comparison:**
+```python
+def apply_rules(row):
+    if float(row.get('price', 0)) < 100:
+        return None
+    return row
+# Removes Wireless Earbuds (79.99) and Bluetooth Speaker (59.99)
+```
+
+**Filter by boolean field:**
+```python
+def apply_rules(row):
+    if not row.get('in_stock'):
+        return None
+    return row
+# Removes Smart Watch (in_stock: false)
+```
+
+**Filter by text contains:**
+```python
+def apply_rules(row):
+    if 'Smart' not in str(row.get('name', '')):
+        return None
+    return row
+# Keeps only "Smart Watch"
+```
+
+**Filter by text starts with / ends with:**
+```python
+def apply_rules(row):
+    if not str(row.get('name', '')).startswith('Bluetooth'):
+        return None
+    return row
+# Keeps only "Bluetooth Speaker"
+```
+
+**Filter by multiple conditions (AND):**
+```python
+def apply_rules(row):
+    if row.get('brand') == 'TechBrand' and float(row.get('price', 0)) > 500:
+        return row
+    return None
+# Keeps only Laptop Pro (TechBrand, 1299.99)
+```
+
+**Filter by multiple conditions (OR):**
+```python
+def apply_rules(row):
+    if row.get('brand') == 'SoundMax' or float(row.get('price', 0)) > 1000:
+        return row
+    return None
+# Keeps SoundMax products + Laptop Pro
+```
+
+**Filter by value in a list:**
+```python
+def apply_rules(row):
+    allowed = ['TechBrand', 'WristTech']
+    if row.get('brand') not in allowed:
+        return None
+    return row
+# Keeps TechBrand and WristTech products
+```
+
+**Filter by price range:**
+```python
+def apply_rules(row):
+    price = float(row.get('price', 0))
+    if 50 <= price <= 300:
+        return row
+    return None
+# Keeps Wireless Earbuds, Smart Watch, Bluetooth Speaker
+```
+
+---
+
+#### Numeric Transforms
+
+**Round a number:**
+```python
+def apply_rules(row):
+    row['price'] = round(float(row['price']))
+    return row
+# 1299.99 → 1300, 79.99 → 80
+```
+
+**Format price as string with currency:**
+```python
+def apply_rules(row):
+    row['price_display'] = '$' + str(round(float(row['price']), 2))
+    return row
+# 1299.99 → "$1299.99"
+```
+
+**Calculate percentage of a total:**
+```python
+total = 1299.99 + 79.99 + 249.99 + 449.99 + 59.99
+def apply_rules(row):
+    row['price_pct'] = str(round(float(row['price']) / total * 100, 1)) + '%'
+    return row
+# Laptop Pro → "60.7%"
+```
+
+**Clamp a value to a range:**
+```python
+def apply_rules(row):
+    row['price'] = max(100, min(1000, float(row['price'])))
+    return row
+# 59.99 → 100, 1299.99 → 1000, 249.99 → 249.99
+```
+
+---
+
+#### Reorder Columns
+
+**Set a specific column order:**
+```python
+def apply_rules(row):
+    order = ['id', 'brand', 'name', 'price', 'in_stock']
+    return {k: row[k] for k in order if k in row}
+```
+
+**Move a column to the front:**
+```python
+def apply_rules(row):
+    result = {'name': row.get('name')}
+    result.update({k: v for k, v in row.items() if k != 'name'})
+    return result
+```
+
+---
+
+#### Conditional Transforms
+
+**Set a value based on a condition:**
+```python
+def apply_rules(row):
+    row['status'] = 'premium' if float(row['price']) > 500 else 'standard'
+    return row
+# 1299.99 → "premium", 79.99 → "standard"
+```
+
+**Apply different rules per brand:**
+```python
+def apply_rules(row):
+    if row.get('brand') == 'TechBrand':
+        row['price'] = round(float(row['price']) * 0.85, 2)   # 15% off
+    elif row.get('brand') == 'SoundMax':
+        row['price'] = round(float(row['price']) * 0.90, 2)   # 10% off
+    return row
+```
+
+**Null / missing value handling:**
+```python
+def apply_rules(row):
+    row['name'] = row.get('name') or 'Unnamed'
+    row['price'] = float(row.get('price') or 0)
+    return row
+```
+
+---
+
+#### Type Conversions
+
+**Convert all values to strings:**
+```python
+def apply_rules(row):
+    return {k: str(v) for k, v in row.items()}
+# true → "True", 1299.99 → "1299.99"
+```
+
+**Convert boolean to 1/0:**
+```python
+def apply_rules(row):
+    row['in_stock'] = 1 if row.get('in_stock') else 0
+    return row
+# true → 1, false → 0
+```
+
+**Convert boolean to Yes/No:**
+```python
+def apply_rules(row):
+    row['in_stock'] = 'Yes' if row.get('in_stock') else 'No'
+    return row
+```
+
+---
+
+#### Combining Multiple Operations
+
+**Full apply_rules example with sample.json** (paste this entire block into the code editor):
+```python
+# These top-level variables are shared across all rows
+counter = {'n': 0}
+brand_country = {'TechBrand': 'USA', 'SoundMax': 'Japan', 'WristTech': 'South Korea'}
+
+def apply_rules(row):
+    # Filter: skip out-of-stock items
+    if not row.get('in_stock'):
+        return None
+
+    counter['n'] += 1
+
+    # Rename columns
+    row['product_name'] = row.pop('name', '')
+    row['manufacturer'] = row.pop('brand', '')
+
+    # Text rules
+    row['product_name'] = str(row['product_name']).upper()
+
+    # Add new columns
+    price = float(row['price'])
+    row['tax'] = round(price * 0.08, 2)
+    row['total'] = round(price * 1.08, 2)
+    row['tier'] = 'Premium' if price >= 500 else 'Standard'
+    row['country'] = brand_country.get(row['manufacturer'], 'Unknown')
+    row['sku'] = str(row['manufacturer'])[:3].upper() + '-' + str(row['id']).zfill(4)
+    row['row_num'] = counter['n']
+
+    # Remove columns
+    row.pop('in_stock', None)
+
+    # Reorder
+    order = ['row_num', 'sku', 'product_name', 'manufacturer', 'country',
+             'price', 'tax', 'total', 'tier']
+    return {k: row.get(k) for k in order}
+```
+
+**Output:**
+| row_num | sku | product_name | manufacturer | country | price | tax | total | tier |
+|---|---|---|---|---|---|---|---|---|
+| 1 | TEC-0001 | LAPTOP PRO | TechBrand | USA | 1299.99 | 104.0 | 1403.99 | Premium |
+| 2 | SOU-0002 | WIRELESS EARBUDS | SoundMax | Japan | 79.99 | 6.4 | 86.39 | Standard |
+| 3 | TEC-0004 | TABLET MINI | TechBrand | USA | 449.99 | 36.0 | 485.99 | Standard |
+| 4 | SOU-0005 | BLUETOOTH SPEAKER | SoundMax | Japan | 59.99 | 4.8 | 64.79 | Standard |
+
+### CSV to JSON Apply Rules Examples
+
+When converting CSV to JSON, all values start as **strings** (CSV has no type information). Use the `apply_rules` function to cast types and restructure data.
+
+All examples below use `test_data/products.csv`:
+
+```csv
+sku,product_name,category,price,stock_qty,supplier
+SKU-001,Wireless Mouse,Electronics,29.99,150,TechCorp
+SKU-002,USB-C Hub,Electronics,49.99,85,TechCorp
+SKU-003,Standing Desk,Furniture,399.00,12,OfficePro
+SKU-004,Mechanical Keyboard,Electronics,89.99,200,KeyMaster
+SKU-005,Monitor Arm,Furniture,129.99,45,OfficePro
+```
+
+> **Important:** All CSV values are strings. `row['price']` is `"29.99"` (string), not `29.99` (float). Cast types explicitly in your `apply_rules` function.
+
+---
+
+#### Quick Reference Table — All Transform Rules for products.csv
+
+| # | Rule | Function | Code |
+|---|------|----------|------|
+| | **Text Transforms** | | |
+| 1 | Uppercase | `row['product_name'].upper()` | `row['product_name'] = row['product_name'].upper()` |
+| 2 | Lowercase | `row['supplier'].lower()` | `row['supplier'] = row['supplier'].lower()` |
+| 3 | Title case | `row['product_name'].title()` | `row['product_name'] = row['product_name'].title()` |
+| 4 | Strip whitespace | `row['product_name'].strip()` | `row['product_name'] = row['product_name'].strip()` |
+| 5 | Replace text | `row['product_name'].replace('USB-C', 'Type-C')` | `row['product_name'] = row['product_name'].replace('USB-C', 'Type-C')` |
+| 6 | Add prefix | `'Product: ' + row['product_name']` | `row['product_name'] = 'Product: ' + row['product_name']` |
+| 7 | Add suffix | `row['supplier'] + ' Ltd.'` | `row['supplier'] = row['supplier'] + ' Ltd.'` |
+| 8 | Truncate | `row['product_name'][:12] + '...'` | `name = row['product_name']; row['product_name'] = name[:12] + '...' if len(name) > 12 else name` |
+| 9 | Pad zeros | `num.zfill(6)` | `num = row['sku'].split('-')[1]; row['sku'] = 'SKU-' + num.zfill(6)` |
+| 10 | Split string | `row['product_name'].split(' ')` | `parts = row['product_name'].split(' '); row['first_word'] = parts[0]` |
+| 11 | Concatenate | `row['product_name'] + ' (' + row['sku'] + ')'` | `row['display'] = row['product_name'] + ' (' + row['sku'] + ')'` |
+| 12 | Reverse | `row['product_name'][::-1]` | `row['product_name'] = row['product_name'][::-1]` |
+| 13 | Contains check | `'USB' in row['product_name']` | `row['is_usb'] = 'USB' in row['product_name']` |
+| 14 | Starts with | `row['product_name'].startswith('Wireless')` | Use in filter: `if not row['product_name'].startswith('Wireless'): return None` |
+| 15 | Ends with | `row['product_name'].endswith('Desk')` | Use in filter: `if not row['product_name'].endswith('Desk'): return None` |
+| 16 | Availability text | `int(row['stock_qty'])` condition | `row['availability'] = 'Low Stock' if int(row['stock_qty']) < 20 else 'In Stock'` |
+| | **Add New Columns** | | |
+| 17 | Static value | `row['key'] = 'value'` | `row['currency'] = 'USD'` |
+| 18 | Computed (discount) | `round(price * 0.9, 2)` | `row['discount_10pct'] = round(float(row['price']) * 0.9, 2)` |
+| 19 | Tax & total | `round(price * 1.08, 2)` | `p = float(row['price']); row['tax'] = round(p * 0.08, 2); row['total'] = round(p * 1.08, 2)` |
+| 20 | Row number | `counter['n'] += 1` | Define `counter = {'n': 0}` above apply_rules; `counter['n'] += 1; row['row_num'] = counter['n']` |
+| 21 | Price tier | `if price >= 200: 'Premium'` | `p = float(row['price']); row['tier'] = 'Premium' if p >= 200 else 'Mid-Range' if p >= 50 else 'Budget'` |
+| 22 | Lookup / mapping | `dict.get(row['supplier'])` | `row['country'] = {'TechCorp':'USA','OfficePro':'Germany','KeyMaster':'Japan'}.get(row['supplier'],'Unknown')` |
+| 23 | Inventory value | `price * qty` | `row['inventory_value'] = round(float(row['price']) * int(row['stock_qty']), 2)` |
+| 24 | Product code | `category[:3] + sku_num` | `row['product_code'] = row['category'][:3].upper() + '-' + row['sku'].split('-')[1]` |
+| | **Remove Columns** | | |
+| 25 | Remove single | `row.pop('col', None)` | `row.pop('stock_qty', None)` |
+| 26 | Remove multiple | `for col in [...]: row.pop(col, None)` | `for col in ['stock_qty', 'supplier']: row.pop(col, None)` |
+| 27 | Keep only listed | `{k: row[k] for k in [...]}`  | `return {k: row[k] for k in ['sku', 'product_name', 'price'] if k in row}` |
+| 28 | Remove by pattern | `if 'qty' not in k` | `return {k: v for k, v in row.items() if 'qty' not in k.lower()}` |
+| | **Rename Columns** | | |
+| 29 | Rename single | `row.pop('old')` | `row['name'] = row.pop('product_name', '')` |
+| 30 | Rename multiple | `for old, new in renames.items()` | `renames = {'product_name':'name','price':'unit_price'}; [row update loop]` |
+| 31 | To camelCase | `parts[0] + parts[1:].title()` | `return {to_camel(k): v for k, v in row.items()}` |
+| 32 | Prefix all | `'prefix_' + k` | `return {'product_' + k: v for k, v in row.items()}` |
+| 33 | Uppercase all | `k.upper()` | `return {k.upper(): v for k, v in row.items()}` |
+| | **Filter Rows** | | |
+| 34 | Exact match | `row['category'] != 'Electronics'` | `if row['category'] != 'Electronics': return None` |
+| 35 | Numeric comparison | `float(row['price']) < 50` | `if float(row['price']) < 50: return None` |
+| 36 | Stock level | `int(row['stock_qty']) < 50` | `if int(row['stock_qty']) < 50: return None` |
+| 37 | Text contains | `'Mouse' not in row['product_name']` | `if 'Mouse' not in row['product_name']: return None` |
+| 38 | AND condition | `category == 'X' and price > N` | `if row['category'] == 'Electronics' and float(row['price']) > 50: return row` |
+| 39 | OR condition | `supplier == 'X' or price >= N` | `if row['supplier'] == 'TechCorp' or float(row['price']) >= 100: return row` |
+| 40 | Value in list | `row['supplier'] not in [...]` | `if row['supplier'] not in ['TechCorp', 'KeyMaster']: return None` |
+| 41 | Price range | `30 <= price <= 100` | `p = float(row['price']); if not (30 <= p <= 100): return None` |
+| 42 | SKU pattern | `int(row['sku'].split('-')[1])` | `if int(row['sku'].split('-')[1]) > 3: return None` |
+| | **Numeric Transforms** | | |
+| 43 | Cast to float | `float(row['price'])` | `row['price'] = float(row['price'])` |
+| 44 | Cast to int | `int(row['stock_qty'])` | `row['stock_qty'] = int(row['stock_qty'])` |
+| 45 | Safe cast | `try/except` | `try: row['price'] = float(row['price'])\nexcept ValueError: row['price'] = 0.0` |
+| 46 | Round | `round(float(row['price']))` | `row['price'] = round(float(row['price']))` |
+| 47 | Currency format | `'$' + str(price)` | `row['price_display'] = '$' + str(round(float(row['price']), 2))` |
+| 48 | Clamp to range | `max(50, min(200, price))` | `row['price'] = max(50, min(200, float(row['price'])))` |
+| | **Reorder Columns** | | |
+| 49 | Specific order | `{k: row[k] for k in order}` | `return {k: row[k] for k in ['sku','product_name','category','supplier','price','stock_qty'] if k in row}` |
+| 50 | Move to front | `result = {'col': row['col']}` | `result = {'product_name': row['product_name']}; result.update(...)` |
+| | **Conditional Transforms** | | |
+| 51 | If/else value | `'premium' if price > 100` | `row['status'] = 'premium' if float(row['price']) > 100 else 'standard'` |
+| 52 | Per-supplier logic | `if row['supplier'] == 'X'` | `if row['supplier'] == 'TechCorp': row['price'] = round(float(row['price']) * 0.85, 2)` |
+| 53 | Null handling | `row.get('col') or default` | `row['product_name'] = row.get('product_name') or 'Unnamed'` |
+| | **Type Conversions** | | |
+| 54 | String to number | `float()`, `int()` | `row['price'] = float(row['price']); row['stock_qty'] = int(row['stock_qty'])` |
+| 55 | Stock to boolean | `int(row['stock_qty']) > 0` | `row['in_stock'] = int(row['stock_qty']) > 0` |
+| 56 | Category to flags | `row['category'] == 'X'` | `row['is_electronics'] = row['category'] == 'Electronics'` |
+| | **Nested JSON** | | |
+| 57 | Group into objects | `return {'product': {...}, 'pricing': {...}}` | See "Restructure Flat CSV" example below |
+| 58 | API-friendly format | `return {'productId': ..., 'productName': ...}` | See "API-friendly response" example below |
+
+---
+
+#### Text Transforms
+
+**Uppercase a text field:**
+```python
+def apply_rules(row):
+    row['product_name'] = row['product_name'].upper()
+    return row
+# "Wireless Mouse" → "WIRELESS MOUSE"
+```
+
+**Lowercase a text field:**
+```python
+def apply_rules(row):
+    row['supplier'] = row['supplier'].lower()
+    return row
+# "TechCorp" → "techcorp"
+```
+
+**Title case:**
+```python
+def apply_rules(row):
+    row['product_name'] = row['product_name'].title()
+    return row
+# "wireless mouse" → "Wireless Mouse"
+```
+
+**Strip whitespace:**
+```python
+def apply_rules(row):
+    row['product_name'] = row['product_name'].strip()
+    row['supplier'] = row['supplier'].strip()
+    return row
+```
+
+**Replace text in a field:**
+```python
+def apply_rules(row):
+    row['product_name'] = row['product_name'].replace('USB-C', 'Type-C')
+    return row
+# "USB-C Hub" → "Type-C Hub"
+```
+
+**Add a prefix or suffix:**
+```python
+def apply_rules(row):
+    row['product_name'] = 'Product: ' + row['product_name']
+    row['supplier'] = row['supplier'] + ' Ltd.'
+    return row
+# "Wireless Mouse" → "Product: Wireless Mouse", "TechCorp" → "TechCorp Ltd."
+```
+
+**Truncate text to a max length:**
+```python
+def apply_rules(row):
+    name = row['product_name']
+    row['product_name'] = name[:12] + '...' if len(name) > 12 else name
+    return row
+# "Mechanical Keyboard" → "Mechanical K..."
+```
+
+**Pad SKU with leading zeros:**
+```python
+def apply_rules(row):
+    # Extract numeric part and re-pad
+    num = row['sku'].split('-')[1]
+    row['sku'] = 'SKU-' + num.zfill(6)
+    return row
+# "SKU-001" → "SKU-000001"
+```
+
+**Extract part of a string (split):**
+```python
+def apply_rules(row):
+    parts = row['product_name'].split(' ')
+    row['first_word'] = parts[0]
+    row['rest'] = ' '.join(parts[1:]) if len(parts) > 1 else ''
+    return row
+# "Wireless Mouse" → first_word: "Wireless", rest: "Mouse"
+```
+
+**Concatenate multiple fields:**
+```python
+def apply_rules(row):
+    row['display'] = row['product_name'] + ' (' + row['sku'] + ')'
+    return row
+# "Wireless Mouse (SKU-001)"
+```
+
+**Reverse a string:**
+```python
+def apply_rules(row):
+    row['product_name'] = row['product_name'][::-1]
+    return row
+# "Wireless Mouse" → "esuoM sseleriW"
+```
+
+**Check if text contains a substring:**
+```python
+def apply_rules(row):
+    row['is_usb'] = 'USB' in row['product_name']
+    return row
+# "USB-C Hub" → True, "Wireless Mouse" → False
+```
+
+**Convert stock quantity to availability text:**
+```python
+def apply_rules(row):
+    qty = int(row['stock_qty'])
+    if qty == 0:
+        row['availability'] = 'Out of Stock'
+    elif qty < 20:
+        row['availability'] = 'Low Stock'
+    elif qty < 100:
+        row['availability'] = 'In Stock'
+    else:
+        row['availability'] = 'Plenty Available'
+    return row
+# 150 → "Plenty Available", 12 → "Low Stock"
+```
+
+---
+
+#### Add New Columns
+
+**Add a column with a static value:**
+```python
+def apply_rules(row):
+    row['currency'] = 'USD'
+    row['warehouse'] = 'Main'
+    return row
+```
+
+**Add a computed column (discount price):**
+```python
+def apply_rules(row):
+    price = float(row['price'])
+    row['price'] = price
+    row['discount_10pct'] = round(price * 0.9, 2)
+    return row
+# 29.99 → discount_10pct: 26.99
+```
+
+**Add tax and total:**
+```python
+def apply_rules(row):
+    price = float(row['price'])
+    row['price'] = price
+    row['tax'] = round(price * 0.08, 2)
+    row['total'] = round(price * 1.08, 2)
+    return row
+# 29.99 → tax: 2.40, total: 32.39
+```
+
+**Add a row number / sequence:**
+```python
+counter = {'n': 0}  # must be defined above apply_rules, in the same code block
+
+def apply_rules(row):
+    counter['n'] += 1
+    row['row_num'] = counter['n']
+    return row
+# row_num: 1, 2, 3, 4, 5
+```
+
+> **Note:** Variables like `counter` must be defined **above** `def apply_rules(row):` in the same code submission. The sandbox executes the entire code block together.
+
+**Add a price tier label:**
+```python
+def apply_rules(row):
+    price = float(row['price'])
+    if price >= 200:
+        row['tier'] = 'Premium'
+    elif price >= 50:
+        row['tier'] = 'Mid-Range'
+    else:
+        row['tier'] = 'Budget'
+    return row
+# 399.00 → "Premium", 89.99 → "Mid-Range", 29.99 → "Budget"
+```
+
+**Add a field based on another field (lookup / mapping):**
+```python
+# Option A: lookup dict inside the function (re-created each row, but simple)
+def apply_rules(row):
+    supplier_country = {
+        'TechCorp': 'USA',
+        'OfficePro': 'Germany',
+        'KeyMaster': 'Japan',
+    }
+    row['country'] = supplier_country.get(row['supplier'], 'Unknown')
+    return row
+# "TechCorp" → "USA", "OfficePro" → "Germany"
+```
+
+```python
+# Option B: lookup dict above the function (created once, more efficient)
+supplier_country = {'TechCorp': 'USA', 'OfficePro': 'Germany', 'KeyMaster': 'Japan'}
+
+def apply_rules(row):
+    row['country'] = supplier_country.get(row['supplier'], 'Unknown')
+    return row
+```
+
+**Add inventory value (price x quantity):**
+```python
+def apply_rules(row):
+    price = float(row['price'])
+    qty = int(row['stock_qty'])
+    row['price'] = price
+    row['stock_qty'] = qty
+    row['inventory_value'] = round(price * qty, 2)
+    return row
+# Wireless Mouse: 29.99 * 150 = 4498.50
+```
+
+**Generate a unique product code from multiple fields:**
+```python
+def apply_rules(row):
+    row['product_code'] = row['category'][:3].upper() + '-' + row['sku'].split('-')[1]
+    return row
+# Electronics, SKU-001 → "ELE-001", Furniture, SKU-003 → "FUR-003"
+```
+
+---
+
+#### Remove Columns
+
+**Remove a single column:**
+```python
+def apply_rules(row):
+    row.pop('stock_qty', None)
+    return row
+```
+
+**Remove multiple columns:**
+```python
+def apply_rules(row):
+    for col in ['stock_qty', 'supplier']:
+        row.pop(col, None)
+    return row
+```
+
+**Keep only specific columns (remove everything else):**
+```python
+def apply_rules(row):
+    return {k: row[k] for k in ['sku', 'product_name', 'price'] if k in row}
+# Output has only sku, product_name, price columns
+```
+
+**Remove columns by pattern (e.g., all columns containing "qty"):**
+```python
+def apply_rules(row):
+    return {k: v for k, v in row.items() if 'qty' not in k.lower()}
+# Removes stock_qty
+```
+
+---
+
+#### Rename Columns
+
+**Rename a single column:**
+```python
+def apply_rules(row):
+    row['name'] = row.pop('product_name', '')
+    return row
+# "product_name" column becomes "name"
+```
+
+**Rename multiple columns:**
+```python
+def apply_rules(row):
+    renames = {
+        'product_name': 'name',
+        'price': 'unit_price',
+        'stock_qty': 'quantity',
+        'supplier': 'vendor',
+    }
+    for old, new in renames.items():
+        if old in row:
+            row[new] = row.pop(old)
+    return row
+```
+
+**Rename columns to camelCase:**
+```python
+def apply_rules(row):
+    def to_camel(name):
+        parts = name.split('_')
+        return parts[0] + ''.join(p.title() for p in parts[1:])
+    return {to_camel(k): v for k, v in row.items()}
+# product_name → productName, stock_qty → stockQty
+```
+
+**Add a prefix to all column names:**
+```python
+def apply_rules(row):
+    return {'product_' + k: v for k, v in row.items()}
+# sku → product_sku, price → product_price, etc.
+```
+
+**Uppercase all column names:**
+```python
+def apply_rules(row):
+    return {k.upper(): v for k, v in row.items()}
+# sku → SKU, product_name → PRODUCT_NAME
+```
+
+---
+
+#### Filter Rows
+
+**Filter by exact value:**
+```python
+def apply_rules(row):
+    if row['category'] != 'Electronics':
+        return None
+    return row
+# Keeps: Wireless Mouse, USB-C Hub, Mechanical Keyboard
+```
+
+**Filter by numeric comparison:**
+```python
+def apply_rules(row):
+    if float(row['price']) < 50:
+        return None
+    return row
+# Removes: Wireless Mouse (29.99), USB-C Hub (49.99)
+```
+
+**Filter by stock level:**
+```python
+def apply_rules(row):
+    if int(row['stock_qty']) < 50:
+        return None
+    return row
+# Removes: Standing Desk (12), Monitor Arm (45)
+```
+
+**Filter by text contains:**
+```python
+def apply_rules(row):
+    if 'Mouse' not in row['product_name'] and 'Keyboard' not in row['product_name']:
+        return None
+    return row
+# Keeps: Wireless Mouse, Mechanical Keyboard
+```
+
+**Filter by text starts with / ends with:**
+```python
+def apply_rules(row):
+    if not row['product_name'].startswith('Wireless'):
+        return None
+    return row
+# Keeps only "Wireless Mouse"
+```
+
+```python
+def apply_rules(row):
+    if not row['product_name'].endswith('Desk'):
+        return None
+    return row
+# Keeps only "Standing Desk"
+```
+
+**Filter by multiple conditions (AND):**
+```python
+def apply_rules(row):
+    if row['category'] == 'Electronics' and float(row['price']) > 50:
+        return row
+    return None
+# Keeps: Mechanical Keyboard (Electronics, 89.99)
+```
+
+**Filter by multiple conditions (OR):**
+```python
+def apply_rules(row):
+    if row['supplier'] == 'TechCorp' or float(row['price']) >= 100:
+        return row
+    return None
+# Keeps: Wireless Mouse, USB-C Hub (TechCorp), Standing Desk, Monitor Arm (>= 100)
+```
+
+**Filter by value in a list:**
+```python
+def apply_rules(row):
+    allowed_suppliers = ['TechCorp', 'KeyMaster']
+    if row['supplier'] not in allowed_suppliers:
+        return None
+    return row
+# Keeps: TechCorp and KeyMaster products
+```
+
+**Filter by price range:**
+```python
+def apply_rules(row):
+    price = float(row['price'])
+    if 30 <= price <= 100:
+        return row
+    return None
+# Keeps: USB-C Hub (49.99), Mechanical Keyboard (89.99)
+```
+
+**Filter by SKU pattern:**
+```python
+def apply_rules(row):
+    sku_num = int(row['sku'].split('-')[1])
+    if sku_num > 3:
+        return None
+    return row
+# Keeps: SKU-001, SKU-002, SKU-003
+```
+
+---
+
+#### Numeric Transforms
+
+**Cast string values to proper types:**
+```python
+def apply_rules(row):
+    row['price'] = float(row['price'])
+    row['stock_qty'] = int(row['stock_qty'])
+    return row
+# "29.99" → 29.99, "150" → 150
+```
+
+**Safe type casting with defaults:**
+```python
+def apply_rules(row):
+    try:
+        row['price'] = float(row.get('price', '0'))
+    except ValueError:
+        row['price'] = 0.0
+    try:
+        row['stock_qty'] = int(row.get('stock_qty', '0'))
+    except ValueError:
+        row['stock_qty'] = 0
+    return row
+```
+
+**Round a number:**
+```python
+def apply_rules(row):
+    row['price'] = round(float(row['price']))
+    return row
+# 29.99 → 30, 399.00 → 399
+```
+
+**Format price as string with currency:**
+```python
+def apply_rules(row):
+    row['price_display'] = '$' + str(round(float(row['price']), 2))
+    return row
+# 29.99 → "$29.99"
+```
+
+**Calculate percentage of total inventory value:**
+```python
+# Pre-calculate total (or hardcode for known data)
+prices = [29.99, 49.99, 399.00, 89.99, 129.99]
+qtys = [150, 85, 12, 200, 45]
+total_value = sum(p * q for p, q in zip(prices, qtys))
+
+def apply_rules(row):
+    val = float(row['price']) * int(row['stock_qty'])
+    row['inventory_value'] = round(val, 2)
+    row['pct_of_total'] = str(round(val / total_value * 100, 1)) + '%'
+    return row
+```
+
+**Clamp price to a range:**
+```python
+def apply_rules(row):
+    row['price'] = max(50, min(200, float(row['price'])))
+    return row
+# 29.99 → 50, 399.00 → 200, 89.99 → 89.99
+```
+
+---
+
+#### Reorder Columns
+
+**Set a specific column order:**
+```python
+def apply_rules(row):
+    order = ['sku', 'product_name', 'category', 'supplier', 'price', 'stock_qty']
+    return {k: row[k] for k in order if k in row}
+```
+
+**Move a column to the front:**
+```python
+def apply_rules(row):
+    result = {'product_name': row['product_name']}
+    result.update({k: v for k, v in row.items() if k != 'product_name'})
+    return result
+```
+
+---
+
+#### Conditional Transforms
+
+**Set a value based on a condition:**
+```python
+def apply_rules(row):
+    row['status'] = 'premium' if float(row['price']) > 100 else 'standard'
+    return row
+# 399.00 → "premium", 29.99 → "standard"
+```
+
+**Apply different discounts per supplier:**
+```python
+def apply_rules(row):
+    price = float(row['price'])
+    if row['supplier'] == 'TechCorp':
+        row['price'] = round(price * 0.85, 2)    # 15% off
+    elif row['supplier'] == 'OfficePro':
+        row['price'] = round(price * 0.90, 2)    # 10% off
+    else:
+        row['price'] = price
+    return row
+```
+
+**Null / missing value handling:**
+```python
+def apply_rules(row):
+    row['product_name'] = row.get('product_name') or 'Unnamed'
+    row['price'] = float(row.get('price') or '0')
+    row['stock_qty'] = int(row.get('stock_qty') or '0')
+    return row
+```
+
+---
+
+#### Type Conversions
+
+**Convert all numeric strings to proper types:**
+```python
+def apply_rules(row):
+    row['price'] = float(row['price'])
+    row['stock_qty'] = int(row['stock_qty'])
+    return row
+# "29.99" → 29.99, "150" → 150
+```
+
+**Convert stock quantity to boolean availability:**
+```python
+def apply_rules(row):
+    row['in_stock'] = int(row['stock_qty']) > 0
+    return row
+# 150 → True, 0 → False
+```
+
+**Convert category to boolean flags:**
+```python
+def apply_rules(row):
+    row['is_electronics'] = row['category'] == 'Electronics'
+    row['is_furniture'] = row['category'] == 'Furniture'
+    return row
+# Electronics → is_electronics: True, is_furniture: False
+```
+
+---
+
+#### Restructure Flat CSV into Nested JSON
+
+**Group fields into nested objects:**
+```python
+def apply_rules(row):
+    return {
+        'sku': row['sku'],
+        'product': {
+            'name': row['product_name'],
+            'category': row['category'],
+        },
+        'pricing': {
+            'amount': float(row['price']),
+            'currency': 'USD',
+        },
+        'inventory': {
+            'quantity': int(row['stock_qty']),
+            'supplier': row['supplier'],
+        },
+    }
+```
+
+**Output:**
+```json
+{
+  "sku": "SKU-001",
+  "product": {"name": "Wireless Mouse", "category": "Electronics"},
+  "pricing": {"amount": 29.99, "currency": "USD"},
+  "inventory": {"quantity": 150, "supplier": "TechCorp"}
+}
+```
+
+**Build an API-friendly response format:**
+```python
+def apply_rules(row):
+    return {
+        'productId': row['sku'],
+        'productName': row['product_name'],
+        'category': row['category'].lower(),
+        'unitPrice': float(row['price']),
+        'stockQuantity': int(row['stock_qty']),
+        'vendor': row['supplier'],
+        'isAvailable': int(row['stock_qty']) > 0,
+    }
+```
+
+---
+
+#### Combining Multiple Operations
+
+**Full apply_rules example with products.csv** (paste this entire block into the code editor):
+```python
+# These top-level variables are shared across all rows
+counter = {'n': 0}
+supplier_info = {
+    'TechCorp': {'country': 'USA', 'discount': 0.15},
+    'OfficePro': {'country': 'Germany', 'discount': 0.10},
+    'KeyMaster': {'country': 'Japan', 'discount': 0.05},
+}
+
+def apply_rules(row):
+    # Filter: skip low-stock items (fewer than 20 units)
+    qty = int(row['stock_qty'])
+    if qty < 20:
+        return None
+
+    counter['n'] += 1
+    price = float(row['price'])
+    supplier = row['supplier']
+    info = supplier_info.get(supplier, {'country': 'Unknown', 'discount': 0})
+
+    return {
+        'index': counter['n'],
+        'product_code': row['category'][:3].upper() + '-' + row['sku'].split('-')[1],
+        'product': {
+            'name': row['product_name'].upper(),
+            'category': row['category'],
+        },
+        'supplier': {
+            'name': supplier,
+            'country': info['country'],
+        },
+        'pricing': {
+            'original': price,
+            'discounted': round(price * (1 - info['discount']), 2),
+            'discount_pct': str(int(info['discount'] * 100)) + '%',
+            'currency': 'USD',
+        },
+        'inventory': {
+            'quantity': qty,
+            'value': round(price * qty, 2),
+        },
+    }
+```
+
+**Output:**
+```json
+[
+  {
+    "index": 1,
+    "product_code": "ELE-001",
+    "product": {"name": "WIRELESS MOUSE", "category": "Electronics"},
+    "supplier": {"name": "TechCorp", "country": "USA"},
+    "pricing": {"original": 29.99, "discounted": 25.49, "discount_pct": "15%", "currency": "USD"},
+    "inventory": {"quantity": 150, "value": 4498.5}
+  },
+  {
+    "index": 2,
+    "product_code": "ELE-002",
+    "product": {"name": "USB-C HUB", "category": "Electronics"},
+    "supplier": {"name": "TechCorp", "country": "USA"},
+    "pricing": {"original": 49.99, "discounted": 42.49, "discount_pct": "15%", "currency": "USD"},
+    "inventory": {"quantity": 85, "value": 4249.15}
+  },
+  {
+    "index": 3,
+    "product_code": "ELE-004",
+    "product": {"name": "MECHANICAL KEYBOARD", "category": "Electronics"},
+    "supplier": {"name": "KeyMaster", "country": "Japan"},
+    "pricing": {"original": 89.99, "discounted": 85.49, "discount_pct": "5%", "currency": "USD"},
+    "inventory": {"quantity": 200, "value": 17998.0}
+  },
+  {
+    "index": 4,
+    "product_code": "FUR-005",
+    "product": {"name": "MONITOR ARM", "category": "Furniture"},
+    "supplier": {"name": "OfficePro", "country": "Germany"},
+    "pricing": {"original": 129.99, "discounted": 116.99, "discount_pct": "10%", "currency": "USD"},
+    "inventory": {"quantity": 45, "value": 5849.55}
+  }
+]
+```
+
+> **Note:** Standing Desk (stock_qty: 12) was filtered out because it has fewer than 20 units.
 
 ## Project Structure
 
 ```
-csv_json_converter/
+DataIntegrator/
 ├── Dockerfile
 ├── docker-compose.yml
 ├── requirements.txt
@@ -54,1134 +1853,93 @@ csv_json_converter/
 │   ├── urls.py
 │   ├── wsgi.py
 │   └── asgi.py
-├── apps/mapping/                   # Mapping app
-│   ├── apps.py
+├── apps/mapping/                   # Main app
 │   ├── models.py                   # ConversionJob model
-│   ├── registry.py                 # Mapping function registry
-│   ├── rules.py                    # Transformation rules engine
-│   ├── serializers.py              # DRF serializers
-│   ├── views.py                    # Raw content API views
-│   ├── views_file.py               # File upload API views
+│   ├── executor.py                 # Sandboxed Python code execution
+│   ├── views_file.py               # File upload + job management views
 │   ├── urls.py
-│   ├── maps/                       # Mapper functions
-│   │   ├── csv_to_json.py          # Raw content CSV->JSON
-│   │   ├── json_to_csv.py          # Raw content JSON->CSV
-│   │   ├── csv_to_json_file.py     # File-based CSV->JSON with rules
-│   │   └── json_to_csv_file.py     # File-based JSON->CSV with rules
-│   └── utils/
-│       └── loader.py               # Registry lookup helper
+│   └── maps/
+│       ├── json_to_csv_file.py     # JSON-to-CSV mapper
+│       └── csv_to_json_file.py     # CSV-to-JSON mapper
+├── templates/
+│   └── index.html                  # Single-page UI
 ├── media/                          # Uploaded and converted files
 │   └── conversions/<job_id>/
 │       ├── input/                  # Original uploaded files
 │       └── output/                 # Converted output files
-└── test_data/                      # Test files and Postman collection
-    ├── employees.csv
-    ├── products.csv
-    ├── orders_semicolon.csv
-    ├── sample.json
-    └── CSV_JSON_Converter.postman_collection.json
+└── test_data/                      # Sample test files
 ```
 
 ## API Endpoints
 
-### Raw Content APIs (JSON body)
+### Convert
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/mapping/registry/` | List all available mapping functions |
-| `POST` | `/api/mapping/csv-to-json/` | Convert CSV string to JSON |
-| `POST` | `/api/mapping/json-to-csv/` | Convert JSON string to CSV |
-| `POST` | `/api/mapping/convert/` | Generic conversion (specify mapper by name) |
+| `POST` | `/api/mapping/file/json-to-csv/` | Upload JSON file + apply_rules code, get CSV |
+| `POST` | `/api/mapping/file/csv-to-json/` | Upload CSV file + apply_rules code, get JSON |
 
-### File Upload APIs (multipart/form-data)
+#### JSON to CSV
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/mapping/file/csv-to-json/` | Upload CSV file, convert to JSON with rules |
-| `POST` | `/api/mapping/file/json-to-csv/` | Upload JSON file, convert to CSV with rules |
+**Request:** `multipart/form-data`
 
-### Job Management APIs
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `file` | file | Yes | JSON file (`.json`) |
+| `function_name` | string | No | User-given name for the rule function |
+| `rules_code` | string | No | Python code with `def apply_rules(row):` |
+| `delimiter` | string | No | CSV delimiter (default: `,`) |
+| `quote_data` | bool | No | Quote data fields (default: `true`) |
+| `quote_header` | bool | No | Quote header row (default: `false`) |
+
+**Example:**
+
+```bash
+curl -X POST http://localhost:8000/api/mapping/file/json-to-csv/ \
+  -F "file=@test_data/sample.json" \
+  -F "function_name=uppercase_names" \
+  -F "rules_code=def apply_rules(row):
+    row['name'] = row['name'].upper()
+    return row"
+```
+
+#### CSV to JSON
+
+**Request:** `multipart/form-data`
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `file` | file | Yes | CSV file (`.csv`) |
+| `function_name` | string | No | User-given name for the rule function |
+| `rules_code` | string | No | Python code with `def apply_rules(row):` |
+| `delimiter` | string | No | CSV delimiter (default: `,`) |
+
+**Example:**
+
+```bash
+curl -X POST http://localhost:8000/api/mapping/file/csv-to-json/ \
+  -F "file=@test_data/products.csv" \
+  -F "function_name=type_cast" \
+  -F "rules_code=def apply_rules(row):
+    row['price'] = float(row['price'])
+    row['in_stock'] = row['in_stock'] == 'true'
+    return row"
+```
+
+> **Note:** CSV values are always strings. Use `int()`, `float()`, or comparison to convert types in your `apply_rules` function.
+
+### Job Management
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/api/mapping/file/jobs/` | List all conversion jobs |
-| `GET` | `/api/mapping/file/jobs/<job_id>/` | Get job detail with logs and rules |
+| `GET` | `/api/mapping/file/jobs/<job_id>/` | Get job detail with logs |
 | `GET` | `/api/mapping/file/jobs/<job_id>/download/` | Download the converted output file |
 
----
+**Query filters for job list:** `?status=completed`, `?status=failed`, `?direction=csv_to_json`
 
-## Raw Content APIs
+### UI
 
-### 1. List Mapping Registry
-
-```
-GET /api/mapping/registry/
-```
-
-**Query Parameters:** `?search=csv` (optional, case-insensitive filter)
-
-```bash
-curl http://localhost:8001/api/mapping/registry/
-```
-
-```json
-[
-  { "id": 1, "name": "csv_to_json", "description": "Convert CSV string content to a JSON array of objects." },
-  { "id": 2, "name": "json_to_csv", "description": "Convert a JSON array of objects to CSV string." },
-  { "id": 3, "name": "csv_to_json_file", "description": "Convert CSV content to JSON with optional transformation rules." },
-  { "id": 4, "name": "json_to_csv_file", "description": "Convert JSON content to CSV with optional transformation rules." }
-]
-```
-
-### 2. CSV to JSON (raw content)
-
-```
-POST /api/mapping/csv-to-json/
-Content-Type: application/json
-```
-
-**Request Payload:**
-
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `content` | string | Yes | — | Raw CSV string |
-| `delimiter` | string | No | auto-detect | Delimiter (`,`, `\t`, `;`, `\|`) |
-| `quotechar` | string | No | `"` | Quote character |
-
-```bash
-curl -X POST http://localhost:8001/api/mapping/csv-to-json/ \
-  -H "Content-Type: application/json" \
-  -d '{"content": "name,age,city\nAlice,30,New York\nBob,25,London"}'
-```
-
-**Response** `200 OK`
-
-```json
-{
-  "output": "[\n  {\n    \"name\": \"Alice\",\n    \"age\": \"30\",\n    \"city\": \"New York\"\n  },\n  {\n    \"name\": \"Bob\",\n    \"age\": \"25\",\n    \"city\": \"London\"\n  }\n]",
-  "logs": [
-    "Auto-detected delimiter: ','",
-    "Parsed 2 row(s) with 3 column(s)",
-    "Columns: name, age, city"
-  ],
-  "output_type": "JSON"
-}
-```
-
-**Error Response** `400 Bad Request`
-
-```json
-{
-  "error": "Conversion failed",
-  "details": "CSV content is empty"
-}
-```
-
-### 3. JSON to CSV (raw content)
-
-```
-POST /api/mapping/json-to-csv/
-Content-Type: application/json
-```
-
-**Request Payload:**
-
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `content` | string | Yes | — | JSON string (array of objects or single object) |
-| `delimiter` | string | No | `,` | CSV delimiter |
-| `quotechar` | string | No | `"` | Quote character |
-| `columns` | array | No | all keys | Explicit column order |
-| `quote_header` | boolean | No | `false` | Quote header row |
-| `quote_data` | boolean | No | `true` | Quote data fields |
-
-```bash
-curl -X POST http://localhost:8001/api/mapping/json-to-csv/ \
-  -H "Content-Type: application/json" \
-  -d '{"content": "[{\"name\":\"Alice\",\"age\":30}]", "quote_data": false}'
-```
-
-**Response** `200 OK`
-
-```json
-{
-  "output": "name,age\nAlice,30\n",
-  "logs": [
-    "Converting 1 row(s) with 2 column(s)",
-    "Columns: name, age"
-  ],
-  "output_type": "CSV"
-}
-```
-
-**Error Response** `400 Bad Request`
-
-```json
-{
-  "error": "Conversion failed",
-  "details": "Expected a JSON array of objects, got str"
-}
-```
-
-### 4. Generic Convert
-
-```
-POST /api/mapping/convert/
-Content-Type: application/json
-```
-
-**Request Payload:**
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `mapping_function` | string | Yes | Registry key (e.g., `csv_to_json`, `json_to_csv`) |
-| `content` | string | Yes | Raw content to convert |
-| *...other fields* | — | No | Passed through as kwargs to the mapper function |
-
-```bash
-curl -X POST http://localhost:8001/api/mapping/convert/ \
-  -H "Content-Type: application/json" \
-  -d '{"mapping_function": "csv_to_json", "content": "name,age\nAlice,30"}'
-```
-
-**Response** `200 OK`
-
-```json
-{
-  "output": "[\n  {\n    \"name\": \"Alice\",\n    \"age\": \"30\"\n  }\n]",
-  "logs": [
-    "Auto-detected delimiter: ','",
-    "Parsed 1 row(s) with 2 column(s)",
-    "Columns: name, age"
-  ],
-  "output_type": "JSON"
-}
-```
-
-**Error Response — unknown mapper** `400 Bad Request`
-
-```json
-{
-  "error": "Unknown mapping function 'nonexistent'",
-  "available": "csv_to_json, csv_to_json_file, json_to_csv, json_to_csv_file"
-}
-```
-
-**Error Response — missing fields** `400 Bad Request`
-
-```json
-{
-  "error": "mapping_function is required"
-}
-```
-
----
-
-## File Upload APIs with Rules
-
-These endpoints accept file uploads via `multipart/form-data`, apply transformation rules, save both input and output files to disk, and track the conversion as a job.
-
-### 5. Upload CSV -> JSON
-
-```
-POST /api/mapping/file/csv-to-json/
-Content-Type: multipart/form-data
-```
-
-**Request Payload (form-data):**
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `file` | file | Yes | CSV file (.csv, .tsv, .txt) |
-| `rules` | text (JSON) | No | Transformation rules JSON string |
-
-**Example — No rules:**
-
-```bash
-curl -X POST http://localhost:8001/api/mapping/file/csv-to-json/ \
-  -F "file=@test_data/employees.csv"
-```
-
-**Example — With rules (filter + rename + transform):**
-
-```bash
-curl -X POST http://localhost:8001/api/mapping/file/csv-to-json/ \
-  -F "file=@test_data/employees.csv" \
-  -F 'rules={
-    "filter_rules": {"department": "Engineering"},
-    "column_mapping": {"first_name": "FirstName", "last_name": "LastName"},
-    "include_columns": ["FirstName", "LastName", "email", "salary"],
-    "transforms": {"FirstName": "uppercase", "email": "lowercase"},
-    "column_order": ["FirstName", "LastName", "email", "salary"]
-  }'
-```
-
-**Response** `201 Created`
-
-```json
-{
-  "job_id": "f27d9b46-56df-4a1a-8027-ebd64d48f98c",
-  "status": "completed",
-  "direction": "csv_to_json",
-  "input_filename": "employees.csv",
-  "output_filename": "employees.json",
-  "rows_processed": 4,
-  "columns_count": 4,
-  "rules_applied": { ... },
-  "logs": [
-    "Auto-detected delimiter: ','",
-    "Parsed 10 row(s) with 8 column(s)",
-    "Rule [filter]: 10 -> 4 rows (filter: {'department': 'Engineering'})",
-    "Rule [column_mapping]: Renamed 2 column(s)",
-    "Rule [include_columns]: Keeping 4 column(s)",
-    "Rule [transforms]: Applied transforms: {'FirstName': 'uppercase', 'email': 'lowercase'}",
-    "Output: 4 row(s) with 4 column(s)"
-  ],
-  "output": "[...json content...]",
-  "download_url": "http://localhost:8001/api/mapping/file/jobs/f27d9b46-.../download/"
-}
-```
-
-**Error Response — invalid file type** `400 Bad Request`
-
-```json
-{
-  "error": "Invalid file type '.pdf'. Expected .csv, .tsv, or .txt"
-}
-```
-
-**Error Response — no file** `400 Bad Request`
-
-```json
-{
-  "error": "No file uploaded. Send a CSV file in the 'file' field."
-}
-```
-
-**Error Response — conversion failure** `400 Bad Request`
-
-```json
-{
-  "job_id": "a1b2c3d4-...",
-  "error": "Conversion failed",
-  "details": "CSV content has headers but no data rows"
-}
-```
-
-### 6. Upload JSON -> CSV
-
-```
-POST /api/mapping/file/json-to-csv/
-Content-Type: multipart/form-data
-```
-
-**Request Payload (form-data):**
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `file` | file | Yes | JSON file (.json) |
-| `rules` | text (JSON) | No | Transformation rules JSON string |
-
-**Example — No rules:**
-
-```bash
-curl -X POST http://localhost:8001/api/mapping/file/json-to-csv/ \
-  -F "file=@test_data/sample.json"
-```
-
-**Example — With rules:**
-
-```bash
-curl -X POST http://localhost:8001/api/mapping/file/json-to-csv/ \
-  -F "file=@test_data/sample.json" \
-  -F 'rules={
-    "column_mapping": {"name": "Product Name", "brand": "Brand", "price": "Price (USD)"},
-    "exclude_columns": ["id"],
-    "transforms": {"Brand": "uppercase"},
-    "column_order": ["Product Name", "Brand", "Price (USD)", "in_stock"],
-    "delimiter": ";",
-    "quote_data": false
-  }'
-```
-
-**Response** `201 Created`
-
-```json
-{
-  "job_id": "71f94324-75ca-4f22-a2c1-6cd1955fbef1",
-  "status": "completed",
-  "direction": "json_to_csv",
-  "input_filename": "sample.json",
-  "output_filename": "sample.csv",
-  "rows_processed": 5,
-  "columns_count": 4,
-  "rules_applied": {
-    "column_mapping": {"name": "Product Name", "brand": "Brand", "price": "Price (USD)"},
-    "exclude_columns": ["id"],
-    "transforms": {"Brand": "uppercase"},
-    "column_order": ["Product Name", "Brand", "Price (USD)", "in_stock"],
-    "delimiter": ";",
-    "quote_data": false
-  },
-  "logs": [
-    "Parsed 5 row(s) with 5 column(s)",
-    "Input columns: id, name, brand, price, in_stock",
-    "Rule [column_mapping]: Renamed 3 column(s): {'name': 'Product Name', 'brand': 'Brand', 'price': 'Price (USD)'}",
-    "Rule [exclude_columns]: Dropping column(s): ['id']",
-    "Rule [transforms]: Applied transforms: {'Brand': 'uppercase'}",
-    "Rule [column_order]: Output order: ['Product Name', 'Brand', 'Price (USD)', 'in_stock']",
-    "Output: 5 row(s) with 4 column(s)",
-    "Output columns: Product Name, Brand, Price (USD), in_stock"
-  ],
-  "output": "Product Name;Brand;Price (USD);in_stock\nLaptop Pro;TECHBRAND;1299.99;True\n...",
-  "download_url": "http://localhost:8001/api/mapping/file/jobs/71f94324-.../download/"
-}
-```
-
-**Error Response** `400 Bad Request`
-
-```json
-{
-  "job_id": "a1b2c3d4-...",
-  "error": "Conversion failed",
-  "details": "JSON content is empty"
-}
-```
-
----
-
-## Transformation Rules Reference
-
-Rules are passed as a JSON string in the `rules` field of file upload endpoints. All rules are optional and applied in the order listed below.
-
-| Rule | Type | Example | Description |
-|------|------|---------|-------------|
-| `filter_rules` | `{"col": "val"}` | `{"department": "Engineering"}` | Keep only rows where column equals value (case-insensitive) |
-| `add_columns` | `{"col": "val"}` | `{"region": "US", "status": "active"}` | Add new columns with a default value to every row |
-| `column_mapping` | `{"old": "new"}` | `{"first_name": "FirstName"}` | Rename columns |
-| `include_columns` | `["col1", "col2"]` | `["name", "email"]` | Keep only these columns (drop all others) |
-| `exclude_columns` | `["col"]` | `["id", "internal_code"]` | Drop these specific columns |
-| `default_values` | `{"col": "val"}` | `{"status": "N/A"}` | Fill missing or empty values with defaults |
-| `transforms` | `{"col": "type"}` or `{"col": {"type": "...", ...}}` | `{"name": "uppercase"}` or `{"tags": {"type": "to_list", "separator": "\|"}}` | Transform values per column (see Transform Types below) |
-| `column_order` | `["col2", "col1"]` | `["name", "age", "city"]` | Reorder output columns |
-| `delimiter` | `string` | `";"` | CSV delimiter (JSON->CSV only) |
-| `quotechar` | `string` | `"'"` | Quote character |
-| `quote_header` | `boolean` | `false` | Quote CSV header row |
-| `quote_data` | `boolean` | `true` | Quote CSV data fields |
-
-### Transform Types
-
-| Type | Effect | Example |
-|------|--------|---------|
-| `uppercase` | Convert to UPPER CASE | `alice` -> `ALICE` |
-| `lowercase` | Convert to lower case | `ALICE` -> `alice` |
-| `title` | Convert to Title Case | `alice johnson` -> `Alice Johnson` |
-| `trim` | Strip leading/trailing whitespace | `" alice "` -> `"alice"` |
-| `strip` | Same as trim | `" alice "` -> `"alice"` |
-| `to_list` | Split string into a list/array | `"red, green, blue"` -> `["red", "green", "blue"]` |
-| `to_char_list` | Split string into individual characters | `"Laptop Pro"` -> `["L", "a", "p", "t", "o", "p", " ", "P", "r", "o"]` |
-
-#### `to_list` Transform
-
-Splits a string value into a list (JSON array). Whitespace around each item is trimmed.
-
-**Simple form** — splits by comma (default separator):
-
-```json
-{
-  "transforms": {
-    "tags": "to_list"
-  }
-}
-```
-
-`"red, green, blue"` -> `["red", "green", "blue"]`
-
-**Dict form** — custom separator:
-
-```json
-{
-  "transforms": {
-    "tags": {"type": "to_list", "separator": "|"}
-  }
-}
-```
-
-`"red|green|blue"` -> `["red", "green", "blue"]`
-
-The dict form can also be used with other transforms if needed in the future. Currently only `to_list` supports extra parameters.
-
-#### `to_char_list` Transform
-
-Splits a string into a list of individual characters.
-
-```json
-{
-  "transforms": {
-    "name": "to_char_list"
-  }
-}
-```
-
-`"Laptop Pro"` -> `["L", "a", "p", "t", "o", "p", " ", "P", "r", "o"]`
-
-### Rules Processing Order
-
-Rules are applied in this fixed sequence (see `apps/mapping/rules.py`):
-
-| Step | Rule | Uses column names | What happens |
-|------|------|-------------------|-------------|
-| 1 | `filter_rules` | **Original** | Rows are filtered first, reducing data before any other operation |
-| 2 | `add_columns` | **Original** | New columns are added with default values to every row |
-| 3 | `column_mapping` | **Original → New** | Columns are renamed — all subsequent rules must use the **new** names |
-| 4 | `include_columns` | **New** (after rename) | Only listed columns are kept, everything else is dropped |
-| 5 | `exclude_columns` | **New** (after rename) | Listed columns are dropped |
-| 6 | `default_values` | **New** (after rename) | Missing or empty values are filled with defaults |
-| 7 | `transforms` | **New** (after rename) | Value transformations are applied per column |
-| 8 | `column_order` | **New** (after rename) | Output columns are reordered |
-
-> **Key detail:** The order matters because renaming happens at step 3. Rules in steps 4–8 must reference the **new** column names (e.g., `"FirstName"`, not `"first_name"`). `filter_rules` (step 1) and `add_columns` (step 2) use the **original** column names since they run before the rename.
-
-### How Rules Flow Through the Code
-
-1. **Frontend** — User configures rules in the sidebar (JSON text inputs). The **Rules Payload** preview shows the live JSON that will be sent.
-2. **Request** — Rules are sent as a JSON string in the `rules` form field alongside the uploaded file (`multipart/form-data`).
-3. **View** (`views_file.py`) — Parses the rules JSON string and passes it to the mapper function.
-4. **Mapper** (`csv_to_json_file.py` / `json_to_csv_file.py`) — Parses the file content into a list of row dicts, then calls `apply_rules(rows, rules, logs)`.
-5. **Rules Engine** (`rules.py`) — Applies each rule in order, mutating the row list and appending log messages.
-6. **Response** — Returns the converted output, processing logs, row/column counts, and a download URL.
-
-### Example: Combining Multiple Rules
-
-Given `employees.csv` with 10 rows and 8 columns:
-
-```json
-{
-  "filter_rules": {"department": "Engineering"},
-  "column_mapping": {"first_name": "FirstName", "salary": "AnnualPay"},
-  "include_columns": ["FirstName", "email", "AnnualPay"],
-  "transforms": {"FirstName": "uppercase", "email": "lowercase"},
-  "default_values": {"AnnualPay": "0"},
-  "column_order": ["FirstName", "email", "AnnualPay"]
-}
-```
-
-**Step-by-step processing:**
-
-| Step | Rule | Before | After |
-|------|------|--------|-------|
-| 1 | `filter_rules` | 10 rows, 8 columns | 4 rows (only `department = "Engineering"`), 8 columns |
-| 2 | `column_mapping` | columns: `first_name`, `salary`, ... | columns: `FirstName`, `AnnualPay`, ... |
-| 3 | `include_columns` | 8 columns | 3 columns: `FirstName`, `email`, `AnnualPay` |
-| 4 | `transforms` | `FirstName: "alice"`, `email: "Alice@Co.COM"` | `FirstName: "ALICE"`, `email: "alice@co.com"` |
-| 5 | `default_values` | `AnnualPay: ""` (empty) | `AnnualPay: "0"` |
-| 6 | `column_order` | order: `FirstName, email, AnnualPay` | same (already in desired order) |
-
-**Result:** 4 rows, 3 columns — Engineering employees with uppercased names, lowercased emails, and default pay values filled in.
-
-**Processing logs returned:**
-```
-Auto-detected delimiter: ','
-Parsed 10 row(s) with 8 column(s)
-Rule [filter]: 10 -> 4 rows (filter: {'department': 'Engineering'})
-Rule [column_mapping]: Renamed 2 column(s)
-Rule [include_columns]: Keeping 3 column(s)
-Rule [transforms]: Applied transforms: {'FirstName': 'uppercase', 'email': 'lowercase'}
-Rule [default_values]: Applied defaults for: ['AnnualPay']
-Rule [column_order]: Output order: ['FirstName', 'email', 'AnnualPay']
-Output: 4 row(s) with 3 column(s)
-```
-
----
-
-## Job Management APIs
-
-### 7. List All Jobs
-
-```
-GET /api/mapping/file/jobs/
-```
-
-**Query Parameters:**
-
-| Parameter | Values | Description |
-|-----------|--------|-------------|
-| `status` | `pending`, `processing`, `completed`, `failed` | Filter by job status |
-| `direction` | `csv_to_json`, `json_to_csv` | Filter by conversion direction |
-
-```bash
-curl http://localhost:8001/api/mapping/file/jobs/?status=completed
-```
-
-```json
-{
-  "count": 3,
-  "results": [
-    {
-      "job_id": "f27d9b46-...",
-      "direction": "csv_to_json",
-      "status": "completed",
-      "input_filename": "employees.csv",
-      "output_filename": "employees.json",
-      "rows_processed": 10,
-      "columns_count": 8,
-      "rules": {},
-      "created_at": "2026-03-18T05:53:05.000Z",
-      "completed_at": "2026-03-18T05:53:05.100Z",
-      "download_url": "http://localhost:8001/api/mapping/file/jobs/f27d9b46-.../download/"
-    }
-  ]
-}
-```
-
-### 8. Get Job Detail
-
-```
-GET /api/mapping/file/jobs/<job_id>/
-```
-
-Returns full job details including logs, rules applied, and error messages.
-
-```bash
-curl http://localhost:8001/api/mapping/file/jobs/f27d9b46-56df-4a1a-8027-ebd64d48f98c/
-```
-
-**Response** `200 OK`
-
-```json
-{
-  "job_id": "f27d9b46-56df-4a1a-8027-ebd64d48f98c",
-  "direction": "csv_to_json",
-  "status": "completed",
-  "input_filename": "employees.csv",
-  "output_filename": "employees.json",
-  "rows_processed": 4,
-  "columns_count": 4,
-  "rules": {
-    "filter_rules": {"department": "Engineering"},
-    "column_mapping": {"first_name": "FirstName", "last_name": "LastName"},
-    "include_columns": ["FirstName", "LastName", "email", "salary"],
-    "transforms": {"FirstName": "uppercase", "email": "lowercase"},
-    "column_order": ["FirstName", "LastName", "email", "salary"]
-  },
-  "logs": "Auto-detected delimiter: ','\nParsed 10 row(s) with 8 column(s)\nRule [filter]: 10 -> 4 rows ...",
-  "error_message": "",
-  "created_at": "2026-03-18T05:53:05.000000+00:00",
-  "completed_at": "2026-03-18T05:53:05.100000+00:00",
-  "download_url": "http://localhost:8001/api/mapping/file/jobs/f27d9b46-.../download/"
-}
-```
-
-**Error Response** `404 Not Found` — when `job_id` does not exist.
-
-### 9. Download Output File
-
-```
-GET /api/mapping/file/jobs/<job_id>/download/
-```
-
-Downloads the converted output file as an attachment. Only works for completed jobs.
-
-```bash
-curl -o output.json http://localhost:8001/api/mapping/file/jobs/f27d9b46-.../download/
-```
-
-**Success Response:** Binary file download with `Content-Disposition: attachment; filename="<output_filename>"`
-
-**Error Response** `400 Bad Request` — job not yet completed:
-
-```json
-{
-  "error": "Job is not completed (status: processing)"
-}
-```
-
-**Error Response** `404 Not Found` — no output file available:
-
-```json
-{
-  "error": "No output file available for this job"
-}
-```
-
-In Postman, use **Send and Download** to save the file.
-
----
-
-## Response Formats
-
-### Raw Content API Success (200)
-
-```json
-{
-  "output": "...converted content...",
-  "logs": ["Parsed 3 row(s) with 3 column(s)"],
-  "output_type": "JSON"
-}
-```
-
-### File Upload API Success (201)
-
-```json
-{
-  "job_id": "uuid",
-  "status": "completed",
-  "direction": "csv_to_json",
-  "input_filename": "data.csv",
-  "output_filename": "data.json",
-  "rows_processed": 10,
-  "columns_count": 5,
-  "rules_applied": { ... },
-  "logs": ["..."],
-  "output": "...converted content...",
-  "download_url": "http://localhost:8001/api/mapping/file/jobs/<id>/download/"
-}
-```
-
-### Error Response (400/500)
-
-```json
-{
-  "error": "Conversion failed",
-  "details": "CSV content is empty"
-}
-```
-
----
-
-## Testing with curl (Step-by-Step)
-
-A complete walkthrough to test every endpoint using curl and the included test data files.
-
-### Step 1: Start the Server
-
-```bash
-docker compose up -d
-docker compose exec web python manage.py migrate
-```
-
-Verify the server is running:
-
-```bash
-curl http://localhost:8001/api/mapping/registry/
-```
-
-You should see a JSON array of 4 mapping functions.
-
-### Step 2: Test Raw Content — CSV to JSON
-
-**Basic CSV (auto-detect comma delimiter):**
-
-```bash
-curl -s -X POST http://localhost:8001/api/mapping/csv-to-json/ \
-  -H "Content-Type: application/json" \
-  -d '{"content": "name,age,city\nAlice,30,New York\nBob,25,London\nCharlie,35,Tokyo"}'
-```
-
-Expected: `output_type: "JSON"` with 3 rows, 3 columns.
-
-**Semicolon delimiter (auto-detect):**
-
-```bash
-curl -s -X POST http://localhost:8001/api/mapping/csv-to-json/ \
-  -H "Content-Type: application/json" \
-  -d '{"content": "order_id;customer;product;quantity\nORD-001;Acme Corp;Widget A;50\nORD-002;Globex Inc;Gadget B;25"}'
-```
-
-Expected: logs show `Auto-detected delimiter: ';'`.
-
-**Tab delimiter (explicit):**
-
-```bash
-curl -s -X POST http://localhost:8001/api/mapping/csv-to-json/ \
-  -H "Content-Type: application/json" \
-  -d '{"content": "id\tname\tvalue\n1\tAlpha\t100\n2\tBeta\t200", "delimiter": "\t"}'
-```
-
-**Error case — empty content:**
-
-```bash
-curl -s -X POST http://localhost:8001/api/mapping/csv-to-json/ \
-  -H "Content-Type: application/json" \
-  -d '{"content": ""}'
-```
-
-Expected: `400` with `"details": "CSV content is empty"`.
-
-### Step 3: Test Raw Content — JSON to CSV
-
-**Basic JSON array:**
-
-```bash
-curl -s -X POST http://localhost:8001/api/mapping/json-to-csv/ \
-  -H "Content-Type: application/json" \
-  -d '{"content": "[{\"name\":\"Alice\",\"age\":30,\"city\":\"New York\"},{\"name\":\"Bob\",\"age\":25,\"city\":\"London\"}]"}'
-```
-
-Expected: CSV output with quoted data fields.
-
-**Single JSON object (auto-wrapped):**
-
-```bash
-curl -s -X POST http://localhost:8001/api/mapping/json-to-csv/ \
-  -H "Content-Type: application/json" \
-  -d '{"content": "{\"name\":\"Alice\",\"age\":30,\"city\":\"New York\"}"}'
-```
-
-Expected: logs include `"Input was a single JSON object, wrapped into an array"`.
-
-**Custom column order + no quotes:**
-
-```bash
-curl -s -X POST http://localhost:8001/api/mapping/json-to-csv/ \
-  -H "Content-Type: application/json" \
-  -d '{"content": "[{\"name\":\"Alice\",\"age\":30,\"city\":\"New York\"}]", "columns": ["city", "name", "age"], "quote_data": false}'
-```
-
-Expected: column order is `city,name,age`.
-
-**Semicolon delimiter:**
-
-```bash
-curl -s -X POST http://localhost:8001/api/mapping/json-to-csv/ \
-  -H "Content-Type: application/json" \
-  -d '{"content": "[{\"a\":1,\"b\":2},{\"a\":3,\"b\":4}]", "delimiter": ";"}'
-```
-
-**Error case — invalid JSON:**
-
-```bash
-curl -s -X POST http://localhost:8001/api/mapping/json-to-csv/ \
-  -H "Content-Type: application/json" \
-  -d '{"content": "this is not valid json"}'
-```
-
-Expected: `400` with JSON decode error details.
-
-### Step 4: Test Generic Convert Endpoint
-
-**CSV to JSON via generic endpoint:**
-
-```bash
-curl -s -X POST http://localhost:8001/api/mapping/convert/ \
-  -H "Content-Type: application/json" \
-  -d '{"mapping_function": "csv_to_json", "content": "name,age\nAlice,30\nBob,25"}'
-```
-
-**JSON to CSV with extra options via generic endpoint:**
-
-```bash
-curl -s -X POST http://localhost:8001/api/mapping/convert/ \
-  -H "Content-Type: application/json" \
-  -d '{"mapping_function": "json_to_csv", "content": "[{\"x\":1,\"y\":2},{\"x\":3,\"y\":4}]", "delimiter": ";", "quote_data": false}'
-```
-
-**Error case — unknown mapper:**
-
-```bash
-curl -s -X POST http://localhost:8001/api/mapping/convert/ \
-  -H "Content-Type: application/json" \
-  -d '{"mapping_function": "nonexistent", "content": "test"}'
-```
-
-Expected: `400` with list of available mapping functions.
-
-### Step 5: Test File Upload — CSV to JSON
-
-**Upload with no rules:**
-
-```bash
-curl -s -X POST http://localhost:8001/api/mapping/file/csv-to-json/ \
-  -F "file=@test_data/employees.csv"
-```
-
-Expected: `201` with 10 rows, 8 columns.
-
-**Upload with filter + rename + transform rules:**
-
-```bash
-curl -s -X POST http://localhost:8001/api/mapping/file/csv-to-json/ \
-  -F "file=@test_data/employees.csv" \
-  -F 'rules={
-    "filter_rules": {"department": "Engineering"},
-    "column_mapping": {"first_name": "FirstName", "last_name": "LastName"},
-    "include_columns": ["FirstName", "LastName", "email", "salary"],
-    "transforms": {"FirstName": "uppercase", "email": "lowercase"},
-    "column_order": ["FirstName", "LastName", "email", "salary"]
-  }'
-```
-
-Expected: `201` with 4 rows (Engineering only), 4 columns, names uppercased.
-
-**Upload semicolon-delimited file:**
-
-```bash
-curl -s -X POST http://localhost:8001/api/mapping/file/csv-to-json/ \
-  -F "file=@test_data/orders_semicolon.csv"
-```
-
-Expected: `201` with auto-detected semicolon delimiter, 4 rows.
-
-**Error case — wrong file type:**
-
-```bash
-curl -s -X POST http://localhost:8001/api/mapping/file/csv-to-json/ \
-  -F "file=@test_data/sample.json"
-```
-
-Expected: `400` with `"Invalid file type '.json'. Expected .csv, .tsv, or .txt"`.
-
-### Step 6: Test File Upload — JSON to CSV
-
-**Upload with no rules:**
-
-```bash
-curl -s -X POST http://localhost:8001/api/mapping/file/json-to-csv/ \
-  -F "file=@test_data/sample.json"
-```
-
-Expected: `201` with 5 rows, 5 columns.
-
-**Upload with all rules combined:**
-
-```bash
-curl -s -X POST http://localhost:8001/api/mapping/file/json-to-csv/ \
-  -F "file=@test_data/sample.json" \
-  -F 'rules={
-    "column_mapping": {"name": "Product Name", "brand": "Brand", "price": "Price (USD)"},
-    "exclude_columns": ["id"],
-    "transforms": {"Brand": "uppercase"},
-    "default_values": {"in_stock": "unknown"},
-    "column_order": ["Product Name", "Brand", "Price (USD)", "in_stock"],
-    "delimiter": ";",
-    "quote_data": false
-  }'
-```
-
-Expected: `201` with 5 rows, 4 columns, semicolon-delimited output, brands uppercased.
-
-### Step 7: Test Job Management
-
-**List all jobs:**
-
-```bash
-curl -s http://localhost:8001/api/mapping/file/jobs/
-```
-
-**Filter by status:**
-
-```bash
-curl -s http://localhost:8001/api/mapping/file/jobs/?status=completed
-curl -s http://localhost:8001/api/mapping/file/jobs/?status=failed
-```
-
-**Filter by direction:**
-
-```bash
-curl -s http://localhost:8001/api/mapping/file/jobs/?direction=csv_to_json
-curl -s http://localhost:8001/api/mapping/file/jobs/?direction=json_to_csv
-```
-
-**Get job detail** (replace `<job_id>` with an actual UUID from the list response):
-
-```bash
-curl -s http://localhost:8001/api/mapping/file/jobs/<job_id>/
-```
-
-**Download output file:**
-
-```bash
-curl -o output_file.json http://localhost:8001/api/mapping/file/jobs/<job_id>/download/
-```
-
-### Step 8: Test the Web UI
-
-Open http://localhost:8001/ in a browser.
-
-#### CSV to JSON (File Upload with Dynamic Rules)
-
-1. Ensure the **CSV → JSON** toggle is selected (active by default on the left)
-2. Upload a CSV file — either **drag & drop** onto the upload zone, or **click** the zone to browse (accepts `.csv`, `.tsv`, `.txt`)
-   - Try with `test_data/employees.csv` or `test_data/orders_semicolon.csv`
-3. After upload, the **Transformation Rules** panel on the right auto-detects all columns and shows a per-column configuration card:
-   - **Checkbox** — uncheck to exclude a column from the output
-   - **Rename** — type a new name (leave blank to keep original)
-   - **Transform** — select: UPPER, lower, Title, or Trim
-   - **Default** — fill value for missing/empty data
-   - **Filter =** — keep only rows where this column equals the entered value
-4. Use the **Column Order** section to reorder output columns with the up/down arrow buttons
-5. The **Rules Payload** section shows a live JSON preview of the rules that will be sent — updates in real-time as you configure. Click **Copy** to copy the payload.
-6. Click **Convert File**
-7. View the result below:
-   - Green **Completed** badge with row count, column count, and output filename
-   - **JSON output preview** — click **Copy** to copy to clipboard
-   - Click **Show processing logs** to see step-by-step rule application details
-   - Click **Download File** to save the `.json` output
-
-**Example — Filter + Rename + Transform:**
-
-1. Upload `test_data/employees.csv` (10 rows, 8 columns detected)
-2. Uncheck the `id` checkbox to exclude it
-3. Type `FirstName` in the **Rename** field for `first_name`
-4. Select **UPPER** in the **Transform** dropdown for `first_name`
-5. Type `Engineering` in the **Filter =** field for `department`
-6. Check the **Rules Payload** preview — it should show:
-   ```json
-   {
-     "filter_rules": { "department": "Engineering" },
-     "column_mapping": { "first_name": "FirstName" },
-     "include_columns": ["FirstName", "last_name", "email", "department", "salary", "hire_date", "is_active"],
-     "transforms": { "FirstName": "uppercase" }
-   }
-   ```
-7. Click **Convert File** — result: 4 rows (Engineering only), 7 columns, first names uppercased
-
-#### JSON to CSV (File Upload with Dynamic Rules)
-
-1. Click the **JSON → CSV** toggle on the right
-2. Upload a `.json` file (e.g., `test_data/sample.json`) — columns are auto-detected from JSON keys
-3. Configure rules in the sidebar — same per-column controls as above
-4. **CSV Options** section appears at the bottom:
-   - **Quote data fields** checkbox (default: checked)
-   - **Quote header row** checkbox (default: unchecked)
-   - **Delimiter** field (e.g., `;` for semicolon-separated output)
-5. Check the **Rules Payload** preview, then click **Convert File**
-
-#### Conversion History
-
-1. Click the **History** tab in the header
-2. Browse all past conversion jobs with status, row counts, and timestamps
-3. Filter by **Status** (Completed, Failed, Processing) or **Type** (CSV to JSON, JSON to CSV)
-4. Click **Download** on any completed job to re-download the output file
-5. Click **Refresh** to reload the list
-
----
-
-## Testing with Postman
-
-### Step 1: Import the Collection
-
-1. Open Postman
-2. Click **Import** (top-left)
-3. Select file: `test_data/CSV_JSON_Converter.postman_collection.json`
-4. The collection **CSV/JSON Converter API** appears in your sidebar
-
-### Step 2: Ensure the Server is Running
-
-```bash
-docker compose up -d
-docker compose exec web python manage.py migrate
-```
-
-Verify at http://localhost:8001/api/mapping/registry/
-
-### Step 3: Run the Requests
-
-The collection has **7 folders** with **31 requests**:
-
-| Folder | Requests | Description |
+| Method | Endpoint | Description |
 |--------|----------|-------------|
-| **Registry** | 2 | List and search mappers |
-| **Raw Content - CSV to JSON** | 5 | Raw string CSV conversions + error case |
-| **Raw Content - JSON to CSV** | 7 | Raw string JSON conversions + error cases |
-| **Raw Content - Generic Convert** | 3 | Generic mapper endpoint + error case |
-| **File Upload - CSV to JSON** | 7 | File uploads with various rule combinations |
-| **File Upload - JSON to CSV** | 4 | File uploads with rules for JSON->CSV |
-| **Job Management** | 6 | List, filter, detail, and download jobs |
-
-### Step 4: File Upload Requests
-
-For file upload requests:
-
-1. Open the request (e.g., **Upload CSV with ALL Rules Combined**)
-2. Go to **Body** tab — it's already set to **form-data**
-3. On the `file` row, click **Select Files** and pick a file from `test_data/`
-4. The `rules` field already has the JSON pre-filled
-5. Click **Send**
-
-### Step 5: Download Output Files
-
-1. Run **List All Jobs** to get a `job_id`
-2. Open **Get Job Detail** and replace `PASTE-JOB-ID-HERE` in the URL with the actual ID
-3. Open **Download Output File**, replace the ID, and click **Send and Download**
-
-### Postman Collection Variable
-
-The collection uses `{{base_url}}` = `http://localhost:8001`. To change it:
-
-1. Click on the collection name
-2. Go to **Variables** tab
-3. Update `base_url`
-
----
-
-## Test Data Files
-
-| File | Format | Rows | Description |
-|------|--------|------|-------------|
-| `employees.csv` | Comma-delimited | 10 | Employee records (id, name, email, department, salary, hire_date, is_active) |
-| `products.csv` | Comma-delimited | 5 | Product catalog (sku, name, category, price, stock, supplier) |
-| `orders_semicolon.csv` | Semicolon-delimited | 4 | Orders (tests delimiter auto-detection) |
-| `sample.json` | JSON array | 5 | Product objects (id, name, brand, price, in_stock) |
-
-## Features
-
-- **File upload with rules** — Upload CSV/JSON files, apply transformation rules, get converted files
-- **Job tracking** — Every file conversion is tracked with status, logs, rules, and timestamps
-- **Output file storage** — Input and output files saved to `media/conversions/<job_id>/`
-- **Downloadable results** — Download converted files via the job download endpoint
-- **Transformation rules engine** — Filter, rename, include/exclude, reorder, transform (uppercase, lowercase, title, trim, to_list), and set defaults
-- **Auto-detect CSV delimiter** — Comma, tab, semicolon, or pipe
-- **Single object handling** — JSON to CSV accepts both `{}` and `[{}]`
-- **Full key collection** — All unique keys across all JSON objects become CSV columns
-- **Configurable quoting** — Control header and data quoting independently
-- **Processing logs** — Every conversion returns detailed diagnostic logs
-- **Registry pattern** — All mappers registered with stable IDs, validated at startup
-
-## Adding a New Mapper
-
-1. Create a file in `apps/mapping/maps/` (e.g., `xml_to_json.py`):
-
-```python
-def xml_to_json_mapper(content: str, **kwargs) -> dict:
-    """Convert XML string to JSON."""
-    logs = []
-    # ... your conversion logic ...
-    return {
-        "output": output_string,
-        "logs": logs,
-        "output_type": "JSON",
-    }
-```
-
-2. Register it in `apps/mapping/registry.py`:
-
-```python
-from .maps.xml_to_json import xml_to_json_mapper
-
-MAPPING_REGISTRY = {
-    # ... existing entries ...
-    "xml_to_json": {
-        "id": 5,
-        "function": xml_to_json_mapper,
-        "production": True,
-    },
-}
-```
-
-3. Immediately available via `GET /api/mapping/registry/` and `POST /api/mapping/convert/`
-
-## Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DEBUG` | `True` | Django debug mode |
-| `SECRET_KEY` | insecure dev key | Django secret key (change in production) |
-| `ALLOWED_HOSTS` | `*` | Comma-separated allowed hosts |
-
-## Tech Stack
-
-- Python 3.12
-- Django 5.2
-- Django REST Framework 3.16
-- Docker
+| `GET` | `/` | Web UI with file upload, code editor, and preview |

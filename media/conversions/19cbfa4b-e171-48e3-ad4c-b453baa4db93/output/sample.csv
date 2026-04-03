@@ -1,0 +1,6 @@
+id,name,brand,price,in_stock,Company name
+"1","Laptop Pro","['TechBrand']","1299.99","True","LAPTOP PRO"
+"2","Wireless Earbuds","['SoundMax']","79.99","True","WIRELESS EARBUDS"
+"3","Smart Watch","['WristTech']","249.99","False","SMART WATCH"
+"4","Tablet Mini","['TechBrand']","449.99","True","TABLET MINI"
+"5","Bluetooth Speaker","['SoundMax']","59.99","True","BLUETOOTH SPEAKER"

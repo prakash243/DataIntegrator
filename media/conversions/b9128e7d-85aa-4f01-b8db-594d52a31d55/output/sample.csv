@@ -1,0 +1,6 @@
+id,price,Product Name,Brand Name,category,discounted_price
+"1","1299.99","LAPTOP PRO","TechBrand","Electronics","1169.99"
+"2","79.99","WIRELESS EARBUDS","SoundMax","Electronics","71.99"
+"3","249.99","SMART WATCH","WristTech","Electronics","224.99"
+"4","449.99","TABLET MINI","TechBrand","Electronics","404.99"
+"5","59.99","BLUETOOTH SPEAKER","SoundMax","Electronics","53.99"

@@ -1,0 +1,90 @@
+[
+  {
+    "index": 1,
+    "product_code": "ELE-001",
+    "product": {
+      "name": "WIRELESS MOUSE",
+      "category": "Electronics"
+    },
+    "supplier": {
+      "name": "TechCorp",
+      "country": "USA"
+    },
+    "pricing": {
+      "original": 29.99,
+      "discounted": 25.49,
+      "discount_pct": "15%",
+      "currency": "USD"
+    },
+    "inventory": {
+      "quantity": 150,
+      "value": 4498.5
+    }
+  },
+  {
+    "index": 2,
+    "product_code": "ELE-002",
+    "product": {
+      "name": "USB-C HUB",
+      "category": "Electronics"
+    },
+    "supplier": {
+      "name": "TechCorp",
+      "country": "USA"
+    },
+    "pricing": {
+      "original": 49.99,
+      "discounted": 42.49,
+      "discount_pct": "15%",
+      "currency": "USD"
+    },
+    "inventory": {
+      "quantity": 85,
+      "value": 4249.15
+    }
+  },
+  {
+    "index": 3,
+    "product_code": "ELE-004",
+    "product": {
+      "name": "MECHANICAL KEYBOARD",
+      "category": "Electronics"
+    },
+    "supplier": {
+      "name": "KeyMaster",
+      "country": "Japan"
+    },
+    "pricing": {
+      "original": 89.99,
+      "discounted": 85.49,
+      "discount_pct": "5%",
+      "currency": "USD"
+    },
+    "inventory": {
+      "quantity": 200,
+      "value": 17998.0
+    }
+  },
+  {
+    "index": 4,
+    "product_code": "FUR-005",
+    "product": {
+      "name": "MONITOR ARM",
+      "category": "Furniture"
+    },
+    "supplier": {
+      "name": "OfficePro",
+      "country": "Germany"
+    },
+    "pricing": {
+      "original": 129.99,
+      "discounted": 116.99,
+      "discount_pct": "10%",
+      "currency": "USD"
+    },
+    "inventory": {
+      "quantity": 45,
+      "value": 5849.55
+    }
+  }
+]

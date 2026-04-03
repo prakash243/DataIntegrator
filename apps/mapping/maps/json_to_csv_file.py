@@ -1,29 +1,30 @@
 """
-JSON to CSV file mapper with rules support.
+JSON to CSV file mapper.
 
-Reads a JSON file, applies transformation rules, and writes a CSV output file.
+Reads JSON content, optionally applies a user-defined apply_rules function,
+and outputs CSV.
 """
 
 import csv
 import io
 import json
 
-from apps.mapping.rules import apply_rules
+from apps.mapping.executor import execute_rules
 
 
-def json_to_csv_file_mapper(content: str, rules: dict | None = None) -> dict:
+def json_to_csv_file_mapper(content: str, rules_code: str = "", **kwargs) -> dict:
     """
-    Convert JSON content to CSV with optional transformation rules.
+    Convert JSON content to CSV with optional user-defined transform.
 
     Args:
         content: Raw JSON string (array of objects or single object)
-        rules: Transformation rules dict (see rules.py for supported rules)
+        rules_code: User's Python code with a def apply_rules(row): function
+        **kwargs: CSV options (delimiter, quotechar, quote_header, quote_data)
 
     Returns:
         dict with keys: output, logs, output_type, rows_processed, columns_count
     """
     logs = []
-    rules = rules or {}
 
     if not content or not content.strip():
         raise ValueError("JSON content is empty")
@@ -48,23 +49,20 @@ def json_to_csv_file_mapper(content: str, rules: dict | None = None) -> dict:
     logs.append(f"Parsed {original_count} row(s) with {len(original_columns)} column(s)")
     logs.append(f"Input columns: {', '.join(original_columns)}")
 
-    # Apply transformation rules
-    data, column_order = apply_rules(data, rules, logs)
+    # Apply user-defined transform if provided
+    if rules_code.strip():
+        data = execute_rules(data, rules_code, logs)
+        if not data:
+            raise ValueError("No rows remain after transform (all filtered out or errored)")
 
-    if not data:
-        raise ValueError("No rows remain after applying filter rules")
+    # Get CSV options
+    delimiter = kwargs.get("delimiter", ",")
+    quotechar = kwargs.get("quotechar", '"')
+    quote_header = kwargs.get("quote_header", False)
+    quote_data = kwargs.get("quote_data", True)
 
-    # Get CSV-specific settings from rules
-    delimiter = rules.get("delimiter", ",")
-    quotechar = rules.get("quotechar", '"')
-    quote_header = rules.get("quote_header", False)
-    quote_data = rules.get("quote_data", True)
-
-    # Determine final column order
-    if column_order:
-        fieldnames = column_order
-    else:
-        fieldnames = _collect_all_keys(data)
+    # Determine final columns
+    fieldnames = _collect_all_keys(data)
 
     logs.append(f"Output: {len(data)} row(s) with {len(fieldnames)} column(s)")
     logs.append(f"Output columns: {', '.join(fieldnames)}")

@@ -1,0 +1,6 @@
+sku,product_name,category,price,stock_qty,supplier
+SKU-001,Wireless Mouse,Electronics,29.99,150,TechCorp
+SKU-002,USB-C Hub,Electronics,49.99,85,TechCorp
+SKU-003,Standing Desk,Furniture,399.00,12,OfficePro
+SKU-004,Mechanical Keyboard,Electronics,89.99,200,KeyMaster
+SKU-005,Monitor Arm,Furniture,129.99,45,OfficePro

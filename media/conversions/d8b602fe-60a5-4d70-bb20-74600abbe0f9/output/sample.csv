@@ -1,0 +1,6 @@
+"id","name","brand","price","in_stock","colors_available","colors"
+"1","LAPTOP PRO","TechBrand","1299.99","True","",""
+"2","WIRELESS EARBUDS","SoundMax","79.99","True","3","[""white"", ""black"", ""blue""]"
+"3","SMART WATCH","WristTech","249.99","False","",""
+"4","TABLET MINI","TechBrand","449.99","True","1","[""silver""]"
+"5","BLUETOOTH SPEAKER","SoundMax","59.99","True","2","[""red"", ""green""]"

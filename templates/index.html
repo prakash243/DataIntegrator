@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CSV/JSON Converter</title>
+  <title>Data Integrator — JSON &amp; CSV Converter</title>
   <style>
     :root {
       --primary: #4f46e5;
@@ -27,7 +27,6 @@
       --gray-900: #111827;
       --radius: 8px;
       --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
-      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -39,497 +38,258 @@
       line-height: 1.5;
     }
 
-    /* Header */
     .header {
       background: white;
       border-bottom: 1px solid var(--gray-200);
       padding: 16px 0;
     }
     .header-inner {
-      max-width: 1200px;
+      max-width: 1000px;
       margin: 0 auto;
       padding: 0 24px;
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
-    .logo {
-      font-size: 20px;
-      font-weight: 700;
-      color: var(--primary);
-    }
+    .logo { font-size: 20px; font-weight: 700; color: var(--primary); }
     .logo span { color: var(--gray-400); font-weight: 400; }
 
-    /* Tabs */
     .tabs {
-      display: flex;
-      gap: 4px;
-      background: var(--gray-100);
-      padding: 4px;
-      border-radius: var(--radius);
+      display: flex; gap: 4px; background: var(--gray-100);
+      padding: 4px; border-radius: var(--radius);
     }
     .tab {
-      padding: 8px 16px;
-      border: none;
-      background: transparent;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--gray-600);
-      transition: all 0.15s;
+      padding: 8px 16px; border: none; background: transparent;
+      border-radius: 6px; cursor: pointer; font-size: 14px;
+      font-weight: 500; color: var(--gray-600); transition: all 0.15s;
     }
     .tab:hover { color: var(--gray-800); }
-    .tab.active {
-      background: white;
-      color: var(--primary);
-      box-shadow: var(--shadow);
-    }
+    .tab.active { background: white; color: var(--primary); box-shadow: var(--shadow); }
 
-    /* Main */
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 24px;
-    }
+    .container { max-width: 1000px; margin: 0 auto; padding: 24px; }
 
-    /* Page sections */
     .page { display: none; }
     .page.active { display: block; }
 
-    /* Convert Page */
-    .convert-layout {
-      display: grid;
-      grid-template-columns: 1fr 300px;
-      gap: 24px;
-    }
-    @media (max-width: 900px) {
-      .convert-layout { grid-template-columns: 1fr; }
-    }
-
     .card {
-      background: white;
-      border-radius: var(--radius);
-      border: 1px solid var(--gray-200);
-      box-shadow: var(--shadow);
+      background: white; border-radius: var(--radius);
+      border: 1px solid var(--gray-200); box-shadow: var(--shadow);
+      margin-bottom: 20px;
     }
     .card-header {
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--gray-200);
-      font-weight: 600;
-      font-size: 15px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      padding: 16px 20px; border-bottom: 1px solid var(--gray-200);
+      font-weight: 600; font-size: 15px;
+      display: flex; align-items: center; justify-content: space-between;
     }
     .card-body { padding: 20px; }
 
-    /* Upload Zone */
+    /* Upload */
     .upload-zone {
-      border: 2px dashed var(--gray-300);
-      border-radius: var(--radius);
-      padding: 40px 20px;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.2s;
-      background: var(--gray-50);
+      border: 2px dashed var(--gray-300); border-radius: var(--radius);
+      padding: 40px 20px; text-align: center; cursor: pointer;
+      transition: all 0.2s; background: var(--gray-50);
     }
     .upload-zone:hover, .upload-zone.dragover {
-      border-color: var(--primary);
-      background: var(--primary-light);
+      border-color: var(--primary); background: var(--primary-light);
     }
     .upload-zone.has-file {
-      border-color: var(--success);
-      background: var(--success-light);
-      border-style: solid;
+      border-color: var(--success); background: var(--success-light); border-style: solid;
     }
-    .upload-icon {
-      font-size: 40px;
-      margin-bottom: 8px;
-    }
-    .upload-text {
-      color: var(--gray-500);
-      font-size: 14px;
-    }
+    .upload-icon { font-size: 40px; margin-bottom: 8px; }
+    .upload-text { color: var(--gray-500); font-size: 14px; }
     .upload-text strong { color: var(--primary); }
-    .file-info {
-      margin-top: 8px;
-      font-size: 13px;
-      color: var(--success);
-      font-weight: 500;
-    }
+    .file-info { margin-top: 8px; font-size: 13px; color: var(--success); font-weight: 500; }
     .upload-zone input[type="file"] { display: none; }
 
-    /* Direction Toggle */
-    .direction-toggle {
-      display: flex;
-      gap: 0;
-      margin-bottom: 20px;
-      border: 1px solid var(--gray-200);
-      border-radius: var(--radius);
-      overflow: hidden;
-    }
-    .direction-btn {
-      flex: 1;
-      padding: 12px;
-      border: none;
-      background: white;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--gray-600);
-      transition: all 0.15s;
-    }
-    .direction-btn:first-child { border-right: 1px solid var(--gray-200); }
-    .direction-btn.active {
-      background: var(--primary);
-      color: white;
-    }
-
-    /* Rules Panel */
-    .rule-group {
-      margin-bottom: 16px;
-    }
-    .rule-group:last-child { margin-bottom: 0; }
-    .rule-label {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--gray-500);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 6px;
-    }
-    .rule-input {
-      width: 100%;
-      padding: 8px 12px;
-      border: 1px solid var(--gray-200);
-      border-radius: 6px;
+    /* Data preview table */
+    .preview-wrapper { overflow-x: auto; max-height: 300px; }
+    .preview-table {
+      border-collapse: collapse; width: max-content; min-width: 100%;
       font-size: 13px;
-      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-      color: var(--gray-700);
-      transition: border-color 0.15s;
-      resize: vertical;
     }
-    .rule-input:focus {
-      outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+    .preview-table th {
+      padding: 8px 12px; background: var(--primary-light); color: var(--primary);
+      font-weight: 600; text-align: left; border: 1px solid var(--gray-200);
+      position: sticky; top: 0; z-index: 1;
     }
-    .rule-hint {
-      font-size: 11px;
-      color: var(--gray-400);
-      margin-top: 4px;
+    .preview-table td {
+      padding: 6px 12px; border: 1px solid var(--gray-200);
+      white-space: nowrap; max-width: 250px; overflow: hidden; text-overflow: ellipsis;
     }
+    .preview-table tr:nth-child(even) td { background: var(--gray-50); }
 
-    /* Checkbox */
-    .rule-check {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 13px;
-      color: var(--gray-600);
-      margin-bottom: 8px;
-    }
-    .rule-check input[type="checkbox"] {
-      width: 16px;
-      height: 16px;
-      accent-color: var(--primary);
-    }
-
-    /* Convert Button */
-    .btn-convert {
-      width: 100%;
-      padding: 14px;
-      background: var(--primary);
-      color: white;
-      border: none;
-      border-radius: var(--radius);
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.15s;
-      margin-top: 20px;
-    }
-    .btn-convert:hover { background: var(--primary-hover); }
-    .btn-convert:disabled {
-      background: var(--gray-300);
-      cursor: not-allowed;
-    }
-
-    /* Result Section */
-    .result-section { margin-top: 24px; }
-    .result-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+    /* Code editor */
+    .code-editor-wrapper { position: relative; }
+    .fn-name-input {
+      width: 100%; padding: 10px 14px; border: 1px solid var(--gray-200);
+      border-radius: 6px; font-size: 14px; color: var(--gray-700);
       margin-bottom: 12px;
     }
+    .fn-name-input:focus { outline: none; border-color: var(--primary); }
+    .code-editor {
+      width: 100%; min-height: 250px; padding: 16px;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 13px; line-height: 1.6; color: #e2e8f0;
+      background: var(--gray-900); border: none; border-radius: var(--radius);
+      resize: vertical; tab-size: 4;
+    }
+    .code-editor:focus { outline: 2px solid var(--primary); outline-offset: -2px; }
+    .code-hint {
+      font-size: 11px; color: var(--gray-400); margin-top: 8px;
+    }
+    .code-hint code {
+      background: var(--gray-100); padding: 1px 4px; border-radius: 3px;
+      font-size: 11px; color: var(--gray-600);
+    }
+
+    /* Direction selector */
+    .direction-selector {
+      display: flex; gap: 4px; background: var(--gray-100);
+      padding: 4px; border-radius: var(--radius); margin-bottom: 20px;
+    }
+    .direction-btn {
+      flex: 1; padding: 10px 16px; border: none; background: transparent;
+      border-radius: 6px; cursor: pointer; font-size: 14px;
+      font-weight: 500; color: var(--gray-600); transition: all 0.15s;
+      text-align: center;
+    }
+    .direction-btn:hover { color: var(--gray-800); }
+    .direction-btn.active { background: white; color: var(--primary); box-shadow: var(--shadow); }
+
+    /* CSV options */
+    .csv-options {
+      display: flex; gap: 20px; align-items: center; flex-wrap: wrap;
+      padding: 12px 0;
+    }
+    .opt-group {
+      display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--gray-600);
+    }
+    .opt-group input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--primary); }
+    .opt-group input[type="text"] {
+      width: 40px; padding: 4px 6px; border: 1px solid var(--gray-200);
+      border-radius: 4px; font-size: 13px; text-align: center;
+      font-family: monospace;
+    }
+
+    /* Convert button */
+    .btn-convert {
+      width: 100%; padding: 14px; background: var(--primary); color: white;
+      border: none; border-radius: var(--radius); font-size: 15px;
+      font-weight: 600; cursor: pointer; transition: background 0.15s;
+    }
+    .btn-convert:hover { background: var(--primary-hover); }
+    .btn-convert:disabled { background: var(--gray-300); cursor: not-allowed; }
+
+    /* Result */
+    .result-section { margin-top: 4px; }
     .result-status {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 13px;
-      font-weight: 500;
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 500;
     }
     .result-status.success { background: var(--success-light); color: var(--success); }
     .result-status.error { background: var(--error-light); color: var(--error); }
+    .result-stats { display: flex; gap: 16px; margin-bottom: 16px; }
+    .stat-item {
+      padding: 12px 16px; background: var(--gray-50);
+      border-radius: 6px; border: 1px solid var(--gray-200);
+    }
+    .stat-value { font-size: 20px; font-weight: 700; color: var(--gray-800); }
+    .stat-label { font-size: 12px; color: var(--gray-500); }
 
     .btn-download {
-      padding: 8px 16px;
-      background: var(--success);
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 500;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      transition: background 0.15s;
+      padding: 8px 16px; background: var(--success); color: white; border: none;
+      border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500;
+      text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
     }
     .btn-download:hover { background: #047857; }
 
-    .result-stats {
-      display: flex;
-      gap: 16px;
-      margin-bottom: 16px;
-    }
-    .stat-item {
-      padding: 12px 16px;
-      background: var(--gray-50);
-      border-radius: 6px;
-      border: 1px solid var(--gray-200);
-    }
-    .stat-value {
-      font-size: 20px;
-      font-weight: 700;
-      color: var(--gray-800);
-    }
-    .stat-label {
-      font-size: 12px;
-      color: var(--gray-500);
-    }
-
-    /* Output Preview */
     .output-preview {
-      background: var(--gray-900);
-      color: #e2e8f0;
-      border-radius: var(--radius);
-      overflow: hidden;
+      background: var(--gray-900); color: #e2e8f0;
+      border-radius: var(--radius); overflow: hidden;
     }
     .output-preview-header {
-      padding: 10px 16px;
-      background: rgba(255,255,255,0.05);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 12px;
-      color: var(--gray-400);
+      padding: 10px 16px; background: rgba(255,255,255,0.05);
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 12px; color: var(--gray-400);
     }
     .btn-copy {
-      padding: 4px 10px;
-      background: rgba(255,255,255,0.1);
-      color: var(--gray-300);
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
-      transition: background 0.15s;
+      padding: 4px 10px; background: rgba(255,255,255,0.1);
+      color: var(--gray-300); border: none; border-radius: 4px;
+      cursor: pointer; font-size: 12px;
     }
     .btn-copy:hover { background: rgba(255,255,255,0.2); }
     .output-content {
-      padding: 16px;
-      max-height: 400px;
-      overflow: auto;
+      padding: 16px; max-height: 400px; overflow: auto;
       font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-      font-size: 13px;
-      line-height: 1.6;
-      white-space: pre-wrap;
-      word-break: break-word;
+      font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word;
     }
 
-    /* Logs */
     .logs-section { margin-top: 16px; }
     .logs-toggle {
-      background: none;
-      border: none;
-      color: var(--primary);
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 500;
-      padding: 0;
+      background: none; border: none; color: var(--primary);
+      cursor: pointer; font-size: 13px; font-weight: 500; padding: 0;
     }
     .logs-content {
-      margin-top: 8px;
-      padding: 12px;
-      background: var(--gray-50);
-      border-radius: 6px;
-      border: 1px solid var(--gray-200);
-      font-size: 12px;
-      font-family: monospace;
-      color: var(--gray-600);
-      max-height: 200px;
-      overflow-y: auto;
+      margin-top: 8px; padding: 12px; background: var(--gray-50);
+      border-radius: 6px; border: 1px solid var(--gray-200);
+      font-size: 12px; font-family: monospace; color: var(--gray-600);
+      max-height: 200px; overflow-y: auto;
     }
     .logs-content .log-line { margin-bottom: 2px; }
-    .logs-content .log-rule { color: var(--primary); }
 
-    /* Jobs Page */
-    .jobs-toolbar {
-      display: flex;
-      gap: 12px;
-      margin-bottom: 20px;
-      flex-wrap: wrap;
-    }
+    /* Jobs table */
     .filter-select {
-      padding: 8px 12px;
-      border: 1px solid var(--gray-200);
-      border-radius: 6px;
-      font-size: 13px;
-      background: white;
-      color: var(--gray-700);
+      padding: 8px 12px; border: 1px solid var(--gray-200);
+      border-radius: 6px; font-size: 13px; background: white; color: var(--gray-700);
     }
     .btn-refresh {
-      padding: 8px 16px;
-      background: white;
-      border: 1px solid var(--gray-200);
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 13px;
-      color: var(--gray-600);
-      transition: all 0.15s;
+      padding: 8px 16px; background: white; border: 1px solid var(--gray-200);
+      border-radius: 6px; cursor: pointer; font-size: 13px; color: var(--gray-600);
     }
     .btn-refresh:hover { border-color: var(--primary); color: var(--primary); }
-
-    .jobs-table {
-      width: 100%;
-      border-collapse: collapse;
-    }
+    .jobs-table { width: 100%; border-collapse: collapse; }
     .jobs-table th {
-      text-align: left;
-      padding: 10px 16px;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--gray-500);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      text-align: left; padding: 10px 16px; font-size: 12px; font-weight: 600;
+      color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px;
       border-bottom: 1px solid var(--gray-200);
     }
     .jobs-table td {
-      padding: 12px 16px;
-      font-size: 13px;
-      border-bottom: 1px solid var(--gray-100);
-      color: var(--gray-700);
+      padding: 12px 16px; font-size: 13px;
+      border-bottom: 1px solid var(--gray-100); color: var(--gray-700);
     }
     .jobs-table tr:hover td { background: var(--gray-50); }
-
     .badge {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 10px;
-      font-size: 11px;
-      font-weight: 600;
+      display: inline-block; padding: 2px 8px; border-radius: 10px;
+      font-size: 11px; font-weight: 600;
     }
     .badge-completed { background: var(--success-light); color: var(--success); }
     .badge-failed { background: var(--error-light); color: var(--error); }
     .badge-processing { background: var(--warning-light); color: var(--warning); }
     .badge-pending { background: var(--gray-100); color: var(--gray-500); }
-    .badge-csv { background: #dbeafe; color: #2563eb; }
-    .badge-json { background: #fef3c7; color: #d97706; }
-
     .btn-small {
-      padding: 4px 10px;
-      background: white;
-      border: 1px solid var(--gray-200);
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
-      color: var(--gray-600);
-      transition: all 0.15s;
+      padding: 4px 10px; background: white; border: 1px solid var(--gray-200);
+      border-radius: 4px; cursor: pointer; font-size: 12px; color: var(--gray-600);
     }
     .btn-small:hover { border-color: var(--primary); color: var(--primary); }
-
-    .empty-state {
-      text-align: center;
-      padding: 60px 20px;
-      color: var(--gray-400);
-    }
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--gray-400); }
     .empty-state-icon { font-size: 48px; margin-bottom: 12px; }
 
-    /* Spinner */
     .spinner {
-      display: inline-block;
-      width: 18px;
-      height: 18px;
-      border: 2px solid rgba(255,255,255,0.3);
-      border-top-color: white;
-      border-radius: 50%;
-      animation: spin 0.6s linear infinite;
-      vertical-align: middle;
-      margin-right: 8px;
+      display: inline-block; width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,0.3); border-top-color: white;
+      border-radius: 50%; animation: spin 0.6s linear infinite;
+      vertical-align: middle; margin-right: 8px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Visual Editor */
-    .ve-card { margin-top: 20px; }
-    .ve-wrapper { overflow-x: auto; max-height: 520px; }
-    .ve-wrapper::-webkit-scrollbar { height: 8px; }
-    .ve-wrapper::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 4px; }
-    .ve-table { border-collapse: collapse; width: max-content; min-width: 100%; }
-    .ve-table td { padding: 6px 10px; border: 1px solid var(--gray-200); font-size: 12px; white-space: nowrap; min-width: 140px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
-    .ve-label {
-      position: sticky; left: 0; z-index: 2; background: var(--gray-100) !important;
-      font-size: 10px; font-weight: 600; color: var(--gray-500);
-      text-transform: uppercase; letter-spacing: 0.3px;
-      min-width: 76px !important; max-width: 76px !important; width: 76px;
-    }
-    .ve-header-cell { background: var(--primary-light) !important; color: var(--primary); font-weight: 700; font-size: 13px !important; }
-    .ve-header-label { background: var(--primary-light) !important; color: var(--primary) !important; }
-    .ve-data td { background: white; color: var(--gray-700); }
-    .ve-data:nth-child(even) td { background: var(--gray-50); }
-    .ve-separator td { height: 3px; padding: 0; background: var(--primary) !important; border: none; }
-    .ve-input, .ve-select {
-      width: 100%; padding: 4px 6px; border: 1px solid var(--gray-200);
-      border-radius: 3px; font-size: 11px; color: var(--gray-700); background: white;
-    }
-    .ve-input:focus, .ve-select:focus { outline: none; border-color: var(--primary); }
-    .ve-include { width: 15px; height: 15px; accent-color: var(--primary); cursor: pointer; }
-    .ve-control-cell { text-align: center; }
-    .ve-col-excluded { opacity: 0.25; pointer-events: none; }
-    td.ve-control-cell.ve-col-excluded { opacity: 0.7; pointer-events: auto; }
-
-    /* Rules Preview */
-    .rules-preview-box {
-      background: var(--gray-900); color: #a5d6ff; border-radius: 6px;
-      padding: 12px; font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-      font-size: 11px; line-height: 1.5; max-height: 250px; overflow-y: auto;
-      white-space: pre-wrap; word-break: break-word;
-    }
-    .rules-preview-box.empty { color: var(--gray-500); font-style: italic; }
-    .rules-preview-header {
-      display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;
-    }
-    .rules-preview-header .rule-label { margin-bottom: 0; }
-    .btn-copy-rules {
-      padding: 2px 8px; background: var(--gray-100); color: var(--gray-500);
-      border: 1px solid var(--gray-200); border-radius: 4px; cursor: pointer; font-size: 11px;
-    }
-    .btn-copy-rules:hover { border-color: var(--primary); color: var(--primary); }
-
-    /* Hidden */
     .hidden { display: none !important; }
   </style>
 </head>
 <body>
 
-<!-- Header -->
 <header class="header">
   <div class="header-inner">
-    <div class="logo">CSV/JSON <span>Converter</span></div>
+    <div class="logo">Data Integrator <span>JSON &amp; CSV Converter</span></div>
     <div class="tabs">
       <button class="tab active" data-page="convert">Convert</button>
       <button class="tab" data-page="jobs">History</button>
@@ -541,177 +301,113 @@
 
   <!-- CONVERT PAGE -->
   <div id="page-convert" class="page active">
-    <div class="convert-layout">
 
-      <!-- Left: Upload + Result -->
-      <div>
-        <!-- Direction Toggle -->
-        <div class="direction-toggle">
-          <button class="direction-btn active" data-direction="csv_to_json">CSV &rarr; JSON</button>
-          <button class="direction-btn" data-direction="json_to_csv">JSON &rarr; CSV</button>
+    <!-- Direction Selector -->
+    <div class="direction-selector" id="direction-selector">
+      <button class="direction-btn active" data-direction="json_to_csv">JSON to CSV</button>
+      <button class="direction-btn" data-direction="csv_to_json">CSV to JSON</button>
+    </div>
+
+    <!-- Step 1: Upload -->
+    <div class="card">
+      <div class="card-header">
+        <span>1. Upload <span id="upload-label">JSON</span> File</span>
+        <span id="upload-ext" style="font-size:12px;color:var(--gray-400)">.json</span>
+      </div>
+      <div class="card-body">
+        <div class="upload-zone" id="upload-zone">
+          <div class="upload-icon">&#128196;</div>
+          <div class="upload-text" id="upload-text">
+            Drag & drop your JSON file here or <strong>click to browse</strong>
+          </div>
+          <div class="file-info hidden" id="file-info"></div>
+          <input type="file" id="file-input" accept=".json">
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Data Preview -->
+    <div class="card hidden" id="preview-card">
+      <div class="card-header">
+        <span>2. Data Preview</span>
+        <span id="preview-info" style="font-size:12px;color:var(--gray-400)"></span>
+      </div>
+      <div class="card-body" style="padding:0">
+        <div class="preview-wrapper">
+          <table class="preview-table" id="preview-table"></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3: Apply Rules Function -->
+    <div class="card hidden" id="editor-card">
+      <div class="card-header">
+        <span>3. Define Apply Rules Function</span>
+      </div>
+      <div class="card-body">
+        <input type="text" class="fn-name-input" id="function-name"
+               placeholder="Function name (e.g. clean_products, format_orders)">
+        <div class="code-editor-wrapper">
+          <textarea class="code-editor" id="code-editor" spellcheck="false">def apply_rules(row):
+    # row is a dict, e.g. {"name": "Alice", "age": "30"}
+    # Modify and return the row, or return None to skip it.
+    #
+    # Examples:
+    #   row['name'] = row['name'].upper()           # uppercase
+    #   row['full'] = row['first'] + ' ' + row['last']  # new column
+    #   del row['temp_col']                          # remove column
+    #   if row['status'] == 'inactive': return None  # filter out
+    #
+    return row</textarea>
+        </div>
+        <div class="code-hint">
+          Write a <code>def apply_rules(row):</code> function that receives each row as a <code>dict</code> and returns the modified row.
+          Return <code>None</code> to filter out a row. Available builtins: str, int, float, len, list, dict, round, min, max, sorted, range, etc.
         </div>
 
-        <!-- Upload -->
-        <div class="card">
-          <div class="card-header">
-            <span id="upload-title">Upload CSV File</span>
-            <span id="accepted-types" style="font-size:12px;color:var(--gray-400)">.csv, .tsv, .txt</span>
+        <div class="csv-options">
+          <div class="opt-group" id="opt-group-quote-data">
+            <input type="checkbox" id="opt-quote-data" checked>
+            <label for="opt-quote-data">Quote data</label>
           </div>
-          <div class="card-body">
-            <div class="upload-zone" id="upload-zone">
-              <div class="upload-icon">&#128196;</div>
-              <div class="upload-text">
-                Drag & drop your file here or <strong>click to browse</strong>
-              </div>
-              <div class="file-info hidden" id="file-info"></div>
-              <input type="file" id="file-input" accept=".csv,.tsv,.txt">
-            </div>
+          <div class="opt-group" id="opt-group-quote-header">
+            <input type="checkbox" id="opt-quote-header">
+            <label for="opt-quote-header">Quote header</label>
           </div>
-        </div>
-
-        <!-- Visual Editor -->
-        <div class="card ve-card hidden" id="visual-editor">
-          <div class="card-header">
-            <span>Visual Rules Editor</span>
-            <div style="display:flex;align-items:center;gap:12px">
-              <span id="ve-info" style="font-size:12px;color:var(--gray-400)"></span>
-              <button class="btn-small" id="btn-add-column" style="font-weight:600">+ Add Column</button>
-            </div>
-          </div>
-          <div class="card-body" style="padding:0">
-            <div class="ve-wrapper">
-              <table class="ve-table" id="ve-table"></table>
-            </div>
-          </div>
-        </div>
-
-        <!-- Convert Button -->
-        <button class="btn-convert" id="btn-convert" disabled>
-          Convert File
-        </button>
-
-        <!-- Result -->
-        <div class="result-section hidden" id="result-section">
-          <div class="card">
-            <div class="card-header">
-              <div class="result-header" style="width:100%">
-                <span class="result-status" id="result-status"></span>
-                <a class="btn-download hidden" id="btn-download" href="#" target="_blank">
-                  &#11015; Download File
-                </a>
-              </div>
-            </div>
-            <div class="card-body">
-              <!-- Stats -->
-              <div class="result-stats" id="result-stats"></div>
-
-              <!-- Output Preview -->
-              <div class="output-preview">
-                <div class="output-preview-header">
-                  <span id="output-type-label">Output</span>
-                  <button class="btn-copy" id="btn-copy">Copy</button>
-                </div>
-                <div class="output-content" id="output-content"></div>
-              </div>
-
-              <!-- Logs -->
-              <div class="logs-section">
-                <button class="logs-toggle" id="logs-toggle">Show processing logs</button>
-                <div class="logs-content hidden" id="logs-content"></div>
-              </div>
-            </div>
+          <div class="opt-group">
+            <label>Delimiter</label>
+            <input type="text" id="opt-delimiter" placeholder="," maxlength="1">
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- Right: Rules Panel -->
-      <div>
-        <div class="card">
-          <div class="card-header">Transformation Rules</div>
-          <div class="card-body">
+    <!-- Convert Button -->
+    <button class="btn-convert" id="btn-convert" disabled>
+      Convert
+    </button>
 
-            <div class="rule-group">
-              <div class="rule-label">Filter Rows</div>
-              <input class="rule-input" id="rule-filter" type="text"
-                     placeholder='{"department": "Engineering"}'>
-              <div class="rule-hint">Keep rows matching key:value pairs</div>
+    <!-- Result -->
+    <div class="result-section hidden" id="result-section">
+      <div class="card">
+        <div class="card-header">
+          <span class="result-status" id="result-status"></span>
+          <a class="btn-download hidden" id="btn-download" href="#" target="_blank">
+            &#11015; <span id="download-label">Download CSV</span>
+          </a>
+        </div>
+        <div class="card-body">
+          <div class="result-stats" id="result-stats"></div>
+          <div class="output-preview">
+            <div class="output-preview-header">
+              <span id="output-label">CSV Output</span>
+              <button class="btn-copy" id="btn-copy">Copy</button>
             </div>
-
-            <div class="rule-group">
-              <div class="rule-label">Add Columns</div>
-              <input class="rule-input" id="rule-add-columns" type="text"
-                     placeholder='{"new_col": "default value"}'>
-              <div class="rule-hint">Add new columns with default values</div>
-            </div>
-
-            <div class="rule-group">
-              <div class="rule-label">Rename Columns</div>
-              <input class="rule-input" id="rule-rename" type="text"
-                     placeholder='{"old_name": "NewName"}'>
-              <div class="rule-hint">Map old column names to new names</div>
-            </div>
-
-            <div class="rule-group">
-              <div class="rule-label">Include Columns</div>
-              <input class="rule-input" id="rule-include" type="text"
-                     placeholder='["col1", "col2", "col3"]'>
-              <div class="rule-hint">Keep only these columns</div>
-            </div>
-
-            <div class="rule-group">
-              <div class="rule-label">Exclude Columns</div>
-              <input class="rule-input" id="rule-exclude" type="text"
-                     placeholder='["col_to_drop"]'>
-              <div class="rule-hint">Drop these columns</div>
-            </div>
-
-            <div class="rule-group">
-              <div class="rule-label">Column Order</div>
-              <input class="rule-input" id="rule-order" type="text"
-                     placeholder='["col2", "col1", "col3"]'>
-              <div class="rule-hint">Reorder output columns</div>
-            </div>
-
-            <div class="rule-group">
-              <div class="rule-label">Transforms</div>
-              <input class="rule-input" id="rule-transforms" type="text"
-                     placeholder='{"name": "uppercase", "tags": "to_list"}'>
-              <div class="rule-hint">uppercase, lowercase, title, trim, to_list, to_char_list</div>
-            </div>
-
-            <div class="rule-group">
-              <div class="rule-label">Default Values</div>
-              <input class="rule-input" id="rule-defaults" type="text"
-                     placeholder='{"status": "N/A"}'>
-              <div class="rule-hint">Fill missing/empty fields</div>
-            </div>
-
-            <hr style="border:none;border-top:1px solid var(--gray-200);margin:16px 0">
-
-            <div class="rule-group">
-              <div class="rules-preview-header">
-                <div class="rule-label">Rules Payload</div>
-                <button class="btn-copy-rules" id="btn-copy-rules">Copy</button>
-              </div>
-              <div id="rules-preview" class="rules-preview-box empty">No rules configured</div>
-            </div>
-
-            <div class="rule-group" id="csv-options">
-              <div class="rule-label">CSV Options</div>
-              <div class="rule-check">
-                <input type="checkbox" id="rule-quote-data" checked>
-                <label for="rule-quote-data">Quote data fields</label>
-              </div>
-              <div class="rule-check">
-                <input type="checkbox" id="rule-quote-header">
-                <label for="rule-quote-header">Quote header row</label>
-              </div>
-              <div style="margin-top:8px">
-                <input class="rule-input" id="rule-delimiter" type="text"
-                       placeholder="," maxlength="1" style="width:60px;text-align:center">
-                <span class="rule-hint" style="margin-left:8px">Delimiter</span>
-              </div>
-            </div>
+            <div class="output-content" id="output-content"></div>
+          </div>
+          <div class="logs-section">
+            <button class="logs-toggle" id="logs-toggle">Show processing logs</button>
+            <div class="logs-content hidden" id="logs-content"></div>
           </div>
         </div>
       </div>
@@ -723,17 +419,12 @@
     <div class="card">
       <div class="card-header">
         <span>Conversion History</span>
-        <div class="jobs-toolbar" style="margin-bottom:0">
+        <div style="display:flex;gap:12px">
           <select class="filter-select" id="filter-status">
             <option value="">All Status</option>
             <option value="completed">Completed</option>
             <option value="failed">Failed</option>
             <option value="processing">Processing</option>
-          </select>
-          <select class="filter-select" id="filter-direction">
-            <option value="">All Types</option>
-            <option value="csv_to_json">CSV to JSON</option>
-            <option value="json_to_csv">JSON to CSV</option>
           </select>
           <button class="btn-refresh" id="btn-refresh-jobs">&#8635; Refresh</button>
         </div>
@@ -746,11 +437,12 @@
           <div class="empty-state-icon">&#128203;</div>
           <div>No conversion jobs found</div>
         </div>
-        <table class="jobs-table" id="jobs-table">
+        <table class="jobs-table hidden" id="jobs-table">
           <thead>
             <tr>
               <th>File</th>
-              <th>Type</th>
+              <th>Direction</th>
+              <th>Function</th>
               <th>Status</th>
               <th>Rows</th>
               <th>Date</th>
@@ -768,32 +460,38 @@
 <script>
 const API_BASE = '/api/mapping';
 
-// ---- State ----
-let currentDirection = 'csv_to_json';
 let selectedFile = null;
-let detectedColumns = [];
-let addedColumns = [];
+let currentDirection = 'json_to_csv';
 
 // ---- DOM refs ----
 const $pages = document.querySelectorAll('.page');
 const $tabs = document.querySelectorAll('.tab');
-const $dirBtns = document.querySelectorAll('.direction-btn');
+const $directionBtns = document.querySelectorAll('.direction-btn');
 const $uploadZone = document.getElementById('upload-zone');
 const $fileInput = document.getElementById('file-input');
 const $fileInfo = document.getElementById('file-info');
-const $uploadTitle = document.getElementById('upload-title');
-const $acceptedTypes = document.getElementById('accepted-types');
+const $uploadLabel = document.getElementById('upload-label');
+const $uploadExt = document.getElementById('upload-ext');
+const $uploadText = document.getElementById('upload-text');
+const $previewCard = document.getElementById('preview-card');
+const $previewTable = document.getElementById('preview-table');
+const $previewInfo = document.getElementById('preview-info');
+const $editorCard = document.getElementById('editor-card');
+const $codeEditor = document.getElementById('code-editor');
+const $functionName = document.getElementById('function-name');
 const $btnConvert = document.getElementById('btn-convert');
 const $resultSection = document.getElementById('result-section');
 const $resultStatus = document.getElementById('result-status');
 const $resultStats = document.getElementById('result-stats');
 const $outputContent = document.getElementById('output-content');
-const $outputTypeLabel = document.getElementById('output-type-label');
+const $outputLabel = document.getElementById('output-label');
+const $downloadLabel = document.getElementById('download-label');
 const $btnDownload = document.getElementById('btn-download');
 const $btnCopy = document.getElementById('btn-copy');
 const $logsToggle = document.getElementById('logs-toggle');
 const $logsContent = document.getElementById('logs-content');
-const $csvOptions = document.getElementById('csv-options');
+const $optGroupQuoteData = document.getElementById('opt-group-quote-data');
+const $optGroupQuoteHeader = document.getElementById('opt-group-quote-header');
 
 // ---- Tab switching ----
 $tabs.forEach(tab => {
@@ -807,42 +505,59 @@ $tabs.forEach(tab => {
   });
 });
 
-// ---- Direction toggle ----
-$dirBtns.forEach(btn => {
+// ---- Direction switching ----
+$directionBtns.forEach(btn => {
   btn.addEventListener('click', () => {
-    $dirBtns.forEach(b => b.classList.remove('active'));
+    const dir = btn.dataset.direction;
+    if (dir === currentDirection) return;
+    currentDirection = dir;
+    $directionBtns.forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    currentDirection = btn.dataset.direction;
-    resetUpload();
-    updateUIForDirection();
+
+    // Update UI labels
+    const isJsonToCsv = dir === 'json_to_csv';
+    const inputType = isJsonToCsv ? 'JSON' : 'CSV';
+    const outputType = isJsonToCsv ? 'CSV' : 'JSON';
+    const inputExt = isJsonToCsv ? '.json' : '.csv';
+
+    $uploadLabel.textContent = inputType;
+    $uploadExt.textContent = inputExt;
+    $uploadText.innerHTML = `Drag & drop your ${inputType} file here or <strong>click to browse</strong>`;
+    $fileInput.accept = inputExt;
+    $btnConvert.textContent = `Convert to ${outputType}`;
+    $outputLabel.textContent = `${outputType} Output`;
+    $downloadLabel.textContent = `Download ${outputType}`;
+
+    // Show/hide CSV-specific quote options
+    $optGroupQuoteData.style.display = isJsonToCsv ? '' : 'none';
+    $optGroupQuoteHeader.style.display = isJsonToCsv ? '' : 'none';
+
+    // Reset state
+    resetForm();
   });
 });
 
-function updateUIForDirection() {
-  if (currentDirection === 'csv_to_json') {
-    $uploadTitle.textContent = 'Upload CSV File';
-    $acceptedTypes.textContent = '.csv, .tsv, .txt';
-    $fileInput.accept = '.csv,.tsv,.txt';
-    $csvOptions.style.display = 'none';
-  } else {
-    $uploadTitle.textContent = 'Upload JSON File';
-    $acceptedTypes.textContent = '.json';
-    $fileInput.accept = '.json';
-    $csvOptions.style.display = 'block';
-  }
+function resetForm() {
+  selectedFile = null;
+  $uploadZone.classList.remove('has-file');
+  $fileInfo.classList.add('hidden');
+  $fileInfo.textContent = '';
+  $previewCard.classList.add('hidden');
+  $editorCard.classList.add('hidden');
+  $resultSection.classList.add('hidden');
+  $btnConvert.disabled = true;
+  $fileInput.value = '';
 }
-updateUIForDirection();
+
+// Set initial button text
+$btnConvert.textContent = 'Convert to CSV';
 
 // ---- File Upload ----
 $uploadZone.addEventListener('click', () => $fileInput.click());
-$uploadZone.addEventListener('dragover', e => {
-  e.preventDefault();
-  $uploadZone.classList.add('dragover');
-});
+$uploadZone.addEventListener('dragover', e => { e.preventDefault(); $uploadZone.classList.add('dragover'); });
 $uploadZone.addEventListener('dragleave', () => $uploadZone.classList.remove('dragover'));
 $uploadZone.addEventListener('drop', e => {
-  e.preventDefault();
-  $uploadZone.classList.remove('dragover');
+  e.preventDefault(); $uploadZone.classList.remove('dragover');
   if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
 });
 $fileInput.addEventListener('change', () => {
@@ -855,27 +570,22 @@ async function handleFile(file) {
   $fileInfo.textContent = `${file.name} (${formatSize(file.size)})`;
   $fileInfo.classList.remove('hidden');
   $btnConvert.disabled = false;
-  const text = await file.slice(0, 65536).text();
-  if (currentDirection === 'csv_to_json') {
-    const parsed = parseCSV(text, 5);
-    if (parsed.headers.length > 0) showVisualEditor(parsed.headers, parsed.rows);
-  } else {
-    const parsed = parseJSON(text, 5);
-    if (parsed.headers.length > 0) showVisualEditor(parsed.headers, parsed.rows);
-  }
-}
-
-function resetUpload() {
-  selectedFile = null;
-  detectedColumns = [];
-  addedColumns = [];
-  $fileInput.value = '';
-  $uploadZone.classList.remove('has-file');
-  $fileInfo.classList.add('hidden');
-  $btnConvert.disabled = true;
   $resultSection.classList.add('hidden');
-  document.getElementById('visual-editor').classList.add('hidden');
-  document.getElementById('ve-table').innerHTML = '';
+
+  // Always show the code editor after upload
+  $editorCard.classList.remove('hidden');
+
+  // Try to parse and show preview (best-effort for large files)
+  const text = await file.slice(0, 65536).text();
+  let parsed;
+  if (currentDirection === 'csv_to_json') {
+    parsed = parseCSV(text, 5);
+  } else {
+    parsed = parseJSON(text, 5);
+  }
+  if (parsed.headers.length > 0) {
+    showPreview(parsed.headers, parsed.rows);
+  }
 }
 
 function formatSize(bytes) {
@@ -884,44 +594,11 @@ function formatSize(bytes) {
   return (bytes / 1048576).toFixed(1) + ' MB';
 }
 
-// ---- Visual Editor ----
-function escapeAttr(s) {
-  return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-function parseCSV(text, maxRows) {
-  const lines = text.split(/\r?\n/);
-  if (!lines.length || !lines[0].trim()) return { headers: [], rows: [] };
-  const first = lines[0];
-  const counts = [[',',0],['\t',0],[';',0],['|',0]];
-  for (const ch of first) { for (const c of counts) { if (ch === c[0]) c[1]++; } }
-  counts.sort((a, b) => b[1] - a[1]);
-  const d = counts[0][1] > 0 ? counts[0][0] : ',';
-  function pl(line) {
-    const f = []; let cur = '', inQ = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (inQ) { if (ch === '"' && line[i+1] === '"') { cur += '"'; i++; } else if (ch === '"') inQ = false; else cur += ch; }
-      else { if (ch === '"') inQ = true; else if (ch === d) { f.push(cur.trim()); cur = ''; } else cur += ch; }
-    }
-    f.push(cur.trim());
-    return f;
-  }
-  const headers = pl(lines[0]);
-  const rows = [];
-  for (let i = 1; i < lines.length && rows.length < maxRows; i++) {
-    if (!lines[i].trim()) continue;
-    rows.push(pl(lines[i]));
-  }
-  return { headers, rows };
-}
-
 function parseJSON(text, maxRows) {
   try {
     let data = JSON.parse(text);
     if (!Array.isArray(data)) data = [data];
     if (!data.length || typeof data[0] !== 'object' || data[0] === null) return { headers: [], rows: [] };
-    // Collect all unique keys
     const seen = {};
     data.forEach(obj => { Object.keys(obj).forEach(k => { if (!(k in seen)) seen[k] = true; }); });
     const headers = Object.keys(seen);
@@ -938,235 +615,68 @@ function parseJSON(text, maxRows) {
   }
 }
 
-function showVisualEditor(headers, rows) {
-  detectedColumns = headers;
-  document.getElementById('visual-editor').classList.remove('hidden');
-  document.getElementById('ve-info').textContent = headers.length + ' columns \u00b7 ' + rows.length + ' rows previewed';
-  let h = '';
-  // Include row
-  h += '<tr><td class="ve-label">Include</td>';
-  headers.forEach((c, i) => { h += '<td class="ve-control-cell" data-ve-col="' + i + '"><input type="checkbox" checked class="ve-include" data-ve-include="' + i + '"></td>'; });
-  h += '</tr>';
-  // Header row
-  h += '<tr><td class="ve-label ve-header-label">Column</td>';
-  headers.forEach((c, i) => { h += '<td class="ve-header-cell" data-ve-col="' + i + '">' + escapeHtml(c) + '</td>'; });
-  h += '</tr>';
-  // Rename row
-  h += '<tr><td class="ve-label">Rename</td>';
-  headers.forEach((c, i) => { h += '<td data-ve-col="' + i + '"><input type="text" class="ve-input" data-ve-rename="' + i + '" placeholder="' + escapeAttr(c) + '"></td>'; });
-  h += '</tr>';
-  // Transform row
-  h += '<tr><td class="ve-label">Transform</td>';
-  headers.forEach((c, i) => {
-    h += '<td data-ve-col="' + i + '"><select class="ve-select" data-ve-transform="' + i + '">' +
-      '<option value="">None</option><option value="uppercase">UPPERCASE</option>' +
-      '<option value="lowercase">lowercase</option><option value="title">Title Case</option>' +
-      '<option value="trim">Trim</option><option value="to_list">To List</option><option value="to_char_list">To Char List</option></select></td>';
-  });
-  h += '</tr>';
-  // List separator row
-  h += '<tr><td class="ve-label">List Sep</td>';
-  headers.forEach((c, i) => { h += '<td data-ve-col="' + i + '"><input type="text" class="ve-input" data-ve-listsep="' + i + '" placeholder="," maxlength="5" style="width:50px;text-align:center"></td>'; });
-  h += '</tr>';
-  // Filter row
-  h += '<tr><td class="ve-label">Filter =</td>';
-  headers.forEach((c, i) => { h += '<td data-ve-col="' + i + '"><input type="text" class="ve-input" data-ve-filter="' + i + '" placeholder="equals..."></td>'; });
-  h += '</tr>';
-  // Default row
-  h += '<tr><td class="ve-label">Default</td>';
-  headers.forEach((c, i) => { h += '<td data-ve-col="' + i + '"><input type="text" class="ve-input" data-ve-default="' + i + '" placeholder="if empty..."></td>'; });
-  h += '</tr>';
-  // Separator
-  h += '<tr class="ve-separator"><td class="ve-label" style="background:var(--primary)!important"></td>';
-  headers.forEach(() => { h += '<td></td>'; });
-  h += '</tr>';
-  // Data rows
-  rows.forEach((row, ri) => {
-    h += '<tr class="ve-data"><td class="ve-label">' + (ri + 1) + '</td>';
-    headers.forEach((c, i) => { h += '<td data-ve-col="' + i + '">' + escapeHtml(row[i] || '') + '</td>'; });
+function parseCSV(text, maxRows) {
+  try {
+    const lines = text.split('\n').filter(l => l.trim());
+    if (lines.length < 2) return { headers: [], rows: [] };
+    const delimiter = document.getElementById('opt-delimiter').value || ',';
+    const headers = parseCSVLine(lines[0], delimiter);
+    const rows = [];
+    for (let i = 1; i < lines.length && rows.length < maxRows; i++) {
+      const vals = parseCSVLine(lines[i], delimiter);
+      rows.push(headers.map((_, idx) => vals[idx] || ''));
+    }
+    return { headers, rows };
+  } catch (e) {
+    return { headers: [], rows: [] };
+  }
+}
+
+function parseCSVLine(line, delimiter) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') { current += '"'; i++; }
+      else if (ch === '"') { inQuotes = false; }
+      else { current += ch; }
+    } else {
+      if (ch === '"') { inQuotes = true; }
+      else if (ch === delimiter) { result.push(current.trim()); current = ''; }
+      else { current += ch; }
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+function showPreview(headers, rows) {
+  $previewCard.classList.remove('hidden');
+  $previewInfo.textContent = `${headers.length} columns \u00b7 showing ${rows.length} of file`;
+  let h = '<thead><tr>';
+  headers.forEach(col => { h += '<th>' + escapeHtml(col) + '</th>'; });
+  h += '</tr></thead><tbody>';
+  rows.forEach(row => {
+    h += '<tr>';
+    row.forEach(val => { h += '<td>' + escapeHtml(val) + '</td>'; });
     h += '</tr>';
   });
-  document.getElementById('ve-table').innerHTML = h;
-  syncVisualToInputs();
+  h += '</tbody>';
+  $previewTable.innerHTML = h;
 }
 
-function syncVisualToInputs() {
-  if (!detectedColumns.length) return;
-  const filter = {}, rename = {}, transforms = {}, defaults = {}, addCols = {};
-  const exclude = [];
-  // Existing columns
-  detectedColumns.forEach((col, i) => {
-    const cb = document.querySelector('[data-ve-include="' + i + '"]');
-    if (!cb || !cb.checked) { exclude.push(col); return; }
-    const rn = (document.querySelector('[data-ve-rename="' + i + '"]') || {}).value || '';
-    const tr = (document.querySelector('[data-ve-transform="' + i + '"]') || {}).value || '';
-    const ls = (document.querySelector('[data-ve-listsep="' + i + '"]') || {}).value || '';
-    const fi = (document.querySelector('[data-ve-filter="' + i + '"]') || {}).value || '';
-    const df = (document.querySelector('[data-ve-default="' + i + '"]') || {}).value || '';
-    const eff = rn.trim() || col;
-    if (fi.trim()) filter[col] = fi.trim();
-    if (rn.trim() && rn.trim() !== col) rename[col] = rn.trim();
-    if (tr) {
-      if (tr === 'to_list' && ls.trim() && ls.trim() !== ',') {
-        transforms[eff] = { type: 'to_list', separator: ls.trim() };
-      } else {
-        transforms[eff] = tr;
-      }
-    }
-    if (df.trim()) defaults[eff] = df.trim();
-  });
-  // Added columns
-  addedColumns.forEach((col, i) => {
-    const rn = (document.querySelector('[data-ve-addcol-rename="' + i + '"]') || {}).value || '';
-    const tr = (document.querySelector('[data-ve-addcol-transform="' + i + '"]') || {}).value || '';
-    const ls = (document.querySelector('[data-ve-addcol-listsep="' + i + '"]') || {}).value || '';
-    const df = (document.querySelector('[data-ve-addcol-default="' + i + '"]') || {}).value || '';
-    const eff = rn.trim() || col.name;
-    addCols[col.name] = df.trim() || col.value;
-    if (rn.trim() && rn.trim() !== col.name) rename[col.name] = rn.trim();
-    if (tr) {
-      if (tr === 'to_list' && ls.trim() && ls.trim() !== ',') {
-        transforms[eff] = { type: 'to_list', separator: ls.trim() };
-      } else {
-        transforms[eff] = tr;
-      }
-    }
-  });
-  document.getElementById('rule-filter').value = Object.keys(filter).length ? JSON.stringify(filter) : '';
-  document.getElementById('rule-add-columns').value = Object.keys(addCols).length ? JSON.stringify(addCols) : '';
-  document.getElementById('rule-rename').value = Object.keys(rename).length ? JSON.stringify(rename) : '';
-  document.getElementById('rule-include').value = '';
-  document.getElementById('rule-exclude').value = exclude.length ? JSON.stringify(exclude) : '';
-  document.getElementById('rule-transforms').value = Object.keys(transforms).length ? JSON.stringify(transforms) : '';
-  document.getElementById('rule-defaults').value = Object.keys(defaults).length ? JSON.stringify(defaults) : '';
-  updateRulesPreview();
-}
-
-// Visual editor event delegation (set once)
-document.getElementById('ve-table').addEventListener('input', syncVisualToInputs);
-document.getElementById('ve-table').addEventListener('change', (e) => {
-  if (e.target.classList.contains('ve-include')) {
-    const col = e.target.dataset.veInclude;
-    document.getElementById('ve-table').querySelectorAll('[data-ve-col="' + col + '"]:not(.ve-control-cell)').forEach(cell => {
-      cell.classList.toggle('ve-col-excluded', !e.target.checked);
-    });
+// ---- Tab key in code editor ----
+$codeEditor.addEventListener('keydown', e => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const start = $codeEditor.selectionStart;
+    const end = $codeEditor.selectionEnd;
+    $codeEditor.value = $codeEditor.value.substring(0, start) + '    ' + $codeEditor.value.substring(end);
+    $codeEditor.selectionStart = $codeEditor.selectionEnd = start + 4;
   }
-  syncVisualToInputs();
 });
-
-// ---- Add Column ----
-document.getElementById('btn-add-column').addEventListener('click', () => {
-  const name = prompt('Enter new column name:');
-  if (!name || !name.trim()) return;
-  const colName = name.trim();
-  if (detectedColumns.includes(colName) || addedColumns.some(c => c.name === colName)) {
-    alert('Column "' + colName + '" already exists.');
-    return;
-  }
-  const defaultVal = prompt('Default value for "' + colName + '":', '') || '';
-  addedColumns.push({ name: colName, value: defaultVal });
-  addColumnToEditor(colName, defaultVal);
-  syncVisualToInputs();
-});
-
-function addColumnToEditor(colName, defaultVal) {
-  const table = document.getElementById('ve-table');
-  const allRows = table.querySelectorAll('tr');
-  const colIndex = detectedColumns.length + addedColumns.length - 1;
-  // Row labels in order: Include, Column, Rename, Transform, List Sep, Filter, Default, Separator, then data rows
-  const rowLabels = ['include', 'header', 'rename', 'transform', 'listsep', 'filter', 'default'];
-  for (let r = 0; r < allRows.length; r++) {
-    const row = allRows[r];
-    const td = document.createElement('td');
-    td.setAttribute('data-ve-col', String(colIndex));
-    if (r === 0) {
-      // Include row — new columns always included, no checkbox needed (they are added columns)
-      td.className = 've-control-cell';
-      td.innerHTML = '<span style="font-size:11px;color:var(--success);font-weight:600">NEW</span>';
-    } else if (r === 1) {
-      // Header row
-      td.className = 've-header-cell';
-      td.style.cssText = 'background:#ecfdf5!important;color:#059669;font-weight:700;font-size:13px!important';
-      td.textContent = colName;
-    } else if (r === 2) {
-      // Rename
-      td.innerHTML = '<input type="text" class="ve-input" data-ve-addcol-rename="' + (addedColumns.length - 1) + '" placeholder="' + escapeAttr(colName) + '">';
-    } else if (r === 3) {
-      // Transform
-      td.innerHTML = '<select class="ve-select" data-ve-addcol-transform="' + (addedColumns.length - 1) + '">' +
-        '<option value="">None</option><option value="uppercase">UPPERCASE</option>' +
-        '<option value="lowercase">lowercase</option><option value="title">Title Case</option>' +
-        '<option value="trim">Trim</option><option value="to_list">To List</option><option value="to_char_list">To Char List</option></select>';
-    } else if (r === 4) {
-      // List Sep
-      td.innerHTML = '<input type="text" class="ve-input" data-ve-addcol-listsep="' + (addedColumns.length - 1) + '" placeholder="," maxlength="5" style="width:50px;text-align:center">';
-    } else if (r === 5) {
-      // Filter
-      td.innerHTML = '<input type="text" class="ve-input" data-ve-addcol-filter="' + (addedColumns.length - 1) + '" placeholder="equals...">';
-    } else if (r === 6) {
-      // Default — pre-fill with the default value
-      td.innerHTML = '<input type="text" class="ve-input" data-ve-addcol-default="' + (addedColumns.length - 1) + '" value="' + escapeAttr(defaultVal) + '" placeholder="if empty...">';
-    } else if (row.classList.contains('ve-separator')) {
-      td.style.cssText = 'height:3px;padding:0;background:var(--primary)!important;border:none';
-    } else if (row.classList.contains('ve-data')) {
-      // Data rows show the default value in italics
-      td.style.cssText = 'font-style:italic;color:var(--gray-400)';
-      td.textContent = defaultVal;
-    }
-    row.appendChild(td);
-  }
-  // Update info text
-  const totalCols = detectedColumns.length + addedColumns.length;
-  const infoEl = document.getElementById('ve-info');
-  const currentText = infoEl.textContent;
-  const rowsMatch = currentText.match(/(\d+) rows/);
-  const previewRows = rowsMatch ? rowsMatch[1] : '?';
-  infoEl.textContent = totalCols + ' columns \u00b7 ' + previewRows + ' rows previewed';
-}
-
-// ---- Build Rules ----
-function buildRules() {
-  const rules = {};
-  const tryParse = (id) => {
-    const val = document.getElementById(id).value.trim();
-    if (!val) return null;
-    try { return JSON.parse(val); } catch { return null; }
-  };
-
-  const filter = tryParse('rule-filter');
-  if (filter) rules.filter_rules = filter;
-
-  const addCols = tryParse('rule-add-columns');
-  if (addCols) rules.add_columns = addCols;
-
-  const rename = tryParse('rule-rename');
-  if (rename) rules.column_mapping = rename;
-
-  const include = tryParse('rule-include');
-  if (include) rules.include_columns = include;
-
-  const exclude = tryParse('rule-exclude');
-  if (exclude) rules.exclude_columns = exclude;
-
-  const order = tryParse('rule-order');
-  if (order) rules.column_order = order;
-
-  const transforms = tryParse('rule-transforms');
-  if (transforms) rules.transforms = transforms;
-
-  const defaults = tryParse('rule-defaults');
-  if (defaults) rules.default_values = defaults;
-
-  // CSV options (for json_to_csv)
-  if (currentDirection === 'json_to_csv') {
-    rules.quote_data = document.getElementById('rule-quote-data').checked;
-    rules.quote_header = document.getElementById('rule-quote-header').checked;
-    const delim = document.getElementById('rule-delimiter').value;
-    if (delim) rules.delimiter = delim;
-  }
-
-  return rules;
-}
 
 // ---- Convert ----
 $btnConvert.addEventListener('click', async () => {
@@ -1176,62 +686,45 @@ $btnConvert.addEventListener('click', async () => {
   $btnConvert.innerHTML = '<span class="spinner"></span> Converting...';
   $resultSection.classList.add('hidden');
 
-  const rules = buildRules();
+  const isJsonToCsv = currentDirection === 'json_to_csv';
+  const endpoint = isJsonToCsv ? 'json-to-csv' : 'csv-to-json';
+
   const formData = new FormData();
   formData.append('file', selectedFile);
-  if (Object.keys(rules).length > 0) {
-    formData.append('rules', JSON.stringify(rules));
+  formData.append('function_name', $functionName.value.trim());
+  formData.append('rules_code', $codeEditor.value);
+  formData.append('delimiter', document.getElementById('opt-delimiter').value || ',');
+  if (isJsonToCsv) {
+    formData.append('quote_data', document.getElementById('opt-quote-data').checked);
+    formData.append('quote_header', document.getElementById('opt-quote-header').checked);
   }
 
-  const endpoint = currentDirection === 'csv_to_json'
-    ? `${API_BASE}/file/csv-to-json/`
-    : `${API_BASE}/file/json-to-csv/`;
-
   try {
-    const resp = await fetch(endpoint, { method: 'POST', body: formData });
+    const resp = await fetch(`${API_BASE}/file/${endpoint}/`, { method: 'POST', body: formData });
     const data = await resp.json();
-
     $resultSection.classList.remove('hidden');
-
-    if (resp.ok) {
-      showSuccess(data);
-    } else {
-      showError(data);
-    }
+    if (resp.ok) { showSuccess(data); } else { showError(data); }
   } catch (err) {
     $resultSection.classList.remove('hidden');
     showError({ error: 'Network error', details: err.message });
   } finally {
     $btnConvert.disabled = false;
-    $btnConvert.innerHTML = 'Convert File';
+    const outputType = currentDirection === 'json_to_csv' ? 'CSV' : 'JSON';
+    $btnConvert.innerHTML = `Convert to ${outputType}`;
   }
 });
 
 function showSuccess(data) {
   $resultStatus.className = 'result-status success';
   $resultStatus.innerHTML = '&#10003; Completed';
-
-  // Stats
   $resultStats.innerHTML = `
     <div class="stat-item"><div class="stat-value">${data.rows_processed}</div><div class="stat-label">Rows</div></div>
     <div class="stat-item"><div class="stat-value">${data.columns_count}</div><div class="stat-label">Columns</div></div>
-    <div class="stat-item"><div class="stat-value">${data.output_filename}</div><div class="stat-label">Output File</div></div>
+    <div class="stat-item"><div class="stat-value">${escapeHtml(data.output_filename)}</div><div class="stat-label">Output File</div></div>
   `;
-
-  // Output preview
-  const outType = currentDirection === 'csv_to_json' ? 'JSON' : 'CSV';
-  $outputTypeLabel.textContent = outType + ' Output';
   $outputContent.textContent = data.output;
-
-  // Download
-  if (data.download_url) {
-    $btnDownload.href = data.download_url;
-    $btnDownload.classList.remove('hidden');
-  } else {
-    $btnDownload.classList.add('hidden');
-  }
-
-  // Logs
+  if (data.download_url) { $btnDownload.href = data.download_url; $btnDownload.classList.remove('hidden'); }
+  else { $btnDownload.classList.add('hidden'); }
   showLogs(data.logs || []);
 }
 
@@ -1239,23 +732,15 @@ function showError(data) {
   $resultStatus.className = 'result-status error';
   $resultStatus.innerHTML = '&#10007; Failed';
   $resultStats.innerHTML = '';
-  $outputTypeLabel.textContent = 'Error';
   $outputContent.textContent = data.details || data.error || 'Unknown error';
   $btnDownload.classList.add('hidden');
   showLogs([]);
 }
 
 function showLogs(logs) {
-  if (!logs.length) {
-    $logsToggle.classList.add('hidden');
-    $logsContent.classList.add('hidden');
-    return;
-  }
+  if (!logs.length) { $logsToggle.classList.add('hidden'); $logsContent.classList.add('hidden'); return; }
   $logsToggle.classList.remove('hidden');
-  $logsContent.innerHTML = logs.map(l => {
-    const cls = l.startsWith('Rule') ? 'log-rule' : '';
-    return `<div class="log-line ${cls}">${escapeHtml(l)}</div>`;
-  }).join('');
+  $logsContent.innerHTML = logs.map(l => `<div class="log-line">${escapeHtml(l)}</div>`).join('');
 }
 
 $logsToggle.addEventListener('click', () => {
@@ -1263,34 +748,6 @@ $logsToggle.addEventListener('click', () => {
   $logsToggle.textContent = isHidden ? 'Show processing logs' : 'Hide processing logs';
 });
 
-// ---- Rules Preview ----
-function updateRulesPreview() {
-  const el = document.getElementById('rules-preview');
-  const rules = buildRules();
-  const hasRules = Object.keys(rules).length > 0;
-  el.textContent = hasRules ? JSON.stringify(rules, null, 2) : 'No rules configured';
-  el.classList.toggle('empty', !hasRules);
-}
-
-// Listen on all rule inputs for live preview
-['rule-filter','rule-add-columns','rule-rename','rule-include','rule-exclude','rule-order','rule-transforms','rule-defaults','rule-delimiter']
-  .forEach(id => document.getElementById(id).addEventListener('input', updateRulesPreview));
-['rule-quote-data','rule-quote-header']
-  .forEach(id => document.getElementById(id).addEventListener('change', updateRulesPreview));
-
-// Copy rules payload
-document.getElementById('btn-copy-rules').addEventListener('click', () => {
-  const el = document.getElementById('rules-preview');
-  if (!el.classList.contains('empty')) {
-    navigator.clipboard.writeText(el.textContent).then(() => {
-      const btn = document.getElementById('btn-copy-rules');
-      btn.textContent = 'Copied!';
-      setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
-    });
-  }
-});
-
-// ---- Copy ----
 $btnCopy.addEventListener('click', () => {
   navigator.clipboard.writeText($outputContent.textContent).then(() => {
     $btnCopy.textContent = 'Copied!';
@@ -1305,35 +762,25 @@ async function loadJobs() {
   const $loading = document.getElementById('jobs-loading');
   const $table = document.getElementById('jobs-table');
 
-  $loading.classList.remove('hidden');
-  $empty.classList.add('hidden');
-  $table.classList.add('hidden');
+  $loading.classList.remove('hidden'); $empty.classList.add('hidden'); $table.classList.add('hidden');
 
   const params = new URLSearchParams();
   const statusVal = document.getElementById('filter-status').value;
-  const dirVal = document.getElementById('filter-direction').value;
   if (statusVal) params.set('status', statusVal);
-  if (dirVal) params.set('direction', dirVal);
 
   try {
     const resp = await fetch(`${API_BASE}/file/jobs/?${params}`);
     const data = await resp.json();
-
     $loading.classList.add('hidden');
-
     if (!data.results || data.results.length === 0) {
-      $empty.classList.remove('hidden');
-      $table.classList.add('hidden');
-      return;
+      $empty.classList.remove('hidden'); return;
     }
-
     $table.classList.remove('hidden');
     $tbody.innerHTML = data.results.map(job => {
       const statusBadge = `<span class="badge badge-${job.status}">${job.status}</span>`;
-      const dirLabel = job.direction === 'csv_to_json'
-        ? '<span class="badge badge-csv">CSV</span> &rarr; <span class="badge badge-json">JSON</span>'
-        : '<span class="badge badge-json">JSON</span> &rarr; <span class="badge badge-csv">CSV</span>';
       const date = new Date(job.created_at).toLocaleString();
+      const fnName = job.function_name || '\u2014';
+      const dirLabel = job.direction === 'csv_to_json' ? 'CSV \u2192 JSON' : 'JSON \u2192 CSV';
       const actions = job.download_url
         ? `<a class="btn-small" href="${job.download_url}" target="_blank">&#11015; Download</a>`
         : '<span style="color:var(--gray-400);font-size:12px">No file</span>';
@@ -1342,26 +789,23 @@ async function loadJobs() {
           <div style="font-weight:500">${escapeHtml(job.input_filename)}</div>
           ${job.output_filename ? `<div style="font-size:11px;color:var(--gray-400)">&rarr; ${escapeHtml(job.output_filename)}</div>` : ''}
         </td>
-        <td>${dirLabel}</td>
+        <td style="font-size:12px">${dirLabel}</td>
+        <td style="font-family:monospace;font-size:12px">${escapeHtml(fnName)}</td>
         <td>${statusBadge}</td>
-        <td>${job.rows_processed || '—'}</td>
+        <td>${job.rows_processed || '\u2014'}</td>
         <td style="font-size:12px;color:var(--gray-500)">${date}</td>
         <td>${actions}</td>
       </tr>`;
     }).join('');
-
   } catch (err) {
-    $loading.classList.add('hidden');
-    $empty.classList.remove('hidden');
+    $loading.classList.add('hidden'); $empty.classList.remove('hidden');
     $empty.querySelector('div:last-child').textContent = 'Failed to load jobs: ' + err.message;
   }
 }
 
 document.getElementById('btn-refresh-jobs').addEventListener('click', loadJobs);
 document.getElementById('filter-status').addEventListener('change', loadJobs);
-document.getElementById('filter-direction').addEventListener('change', loadJobs);
 
-// ---- Utilities ----
 function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;

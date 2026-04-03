@@ -22,8 +22,8 @@ class ConversionJob(models.Model):
     ]
 
     DIRECTION_CHOICES = [
-        ("csv_to_json", "CSV to JSON"),
         ("json_to_csv", "JSON to CSV"),
+        ("csv_to_json", "CSV to JSON"),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -36,7 +36,11 @@ class ConversionJob(models.Model):
     output_file = models.FileField(upload_to=output_upload_path, blank=True, null=True)
     output_filename = models.CharField(max_length=255, blank=True, default="")
 
-    # Rules (stored as JSON)
+    # User-defined rules
+    function_name = models.CharField(max_length=255, blank=True, default="")
+    rules_code = models.TextField(blank=True, default="")
+
+    # Legacy field kept for migration compatibility
     rules = models.JSONField(default=dict, blank=True)
 
     # Processing info

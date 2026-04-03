@@ -5,7 +5,6 @@ These views accept file uploads (CSV or JSON), apply transformation rules,
 create output files, and store the job history.
 """
 
-import json
 import logging
 import os
 
@@ -13,6 +12,8 @@ from django.core.files.base import ContentFile
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
@@ -25,113 +26,21 @@ from .models import ConversionJob
 logger = logging.getLogger(__name__)
 
 
-class FileUploadCsvToJsonView(APIView):
-    """
-    Upload a CSV file with optional rules, convert to JSON, and create an output file.
-
-    POST /api/mapping/file/csv-to-json/
-    Content-Type: multipart/form-data
-
-    Fields:
-        file (required): CSV file to convert
-        rules (optional): JSON string with transformation rules
-    """
-
-    parser_classes = [MultiPartParser, FormParser]
-
-    def post(self, request):
-        uploaded_file = request.FILES.get("file")
-        if not uploaded_file:
-            return Response({"error": "No file uploaded. Send a CSV file in the 'file' field."},
-                            status=status.HTTP_400_BAD_REQUEST)
-
-        # Validate file extension
-        filename = uploaded_file.name
-        ext = os.path.splitext(filename)[1].lower()
-        if ext not in (".csv", ".tsv", ".txt"):
-            return Response(
-                {"error": f"Invalid file type '{ext}'. Expected .csv, .tsv, or .txt"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Parse rules
-        rules = _parse_rules(request.data.get("rules", "{}"))
-        if isinstance(rules, Response):
-            return rules  # Error response
-
-        # Create job record
-        job = ConversionJob.objects.create(
-            direction="csv_to_json",
-            input_filename=filename,
-            rules=rules,
-        )
-
-        # Read file content first (before save consumes the stream)
-        content = uploaded_file.read().decode("utf-8")
-        uploaded_file.seek(0)
-
-        # Save input file
-        job.input_file.save(filename, uploaded_file, save=True)
-
-        try:
-            job.status = "processing"
-            job.save(update_fields=["status"])
-
-            # Run conversion with rules
-            result = csv_to_json_file_mapper(content, rules=rules)
-
-            # Generate output filename
-            base_name = os.path.splitext(filename)[0]
-            output_filename = f"{base_name}.json"
-
-            # Save output file
-            job.output_file.save(output_filename, ContentFile(result["output"].encode("utf-8")), save=False)
-            job.output_filename = output_filename
-            job.status = "completed"
-            job.rows_processed = result.get("rows_processed", 0)
-            job.columns_count = result.get("columns_count", 0)
-            job.logs = "\n".join(result["logs"])
-            job.completed_at = timezone.now()
-            job.save()
-
-            return Response({
-                "job_id": str(job.id),
-                "status": job.status,
-                "direction": job.direction,
-                "input_filename": job.input_filename,
-                "output_filename": job.output_filename,
-                "rows_processed": job.rows_processed,
-                "columns_count": job.columns_count,
-                "rules_applied": rules,
-                "logs": result["logs"],
-                "output": result["output"],
-                "download_url": request.build_absolute_uri(f"/api/mapping/file/jobs/{job.id}/download/"),
-            }, status=status.HTTP_201_CREATED)
-
-        except Exception as e:
-            job.status = "failed"
-            job.error_message = str(e)
-            job.completed_at = timezone.now()
-            job.save()
-
-            logger.exception(f"CSV to JSON file conversion failed for job {job.id}")
-            return Response({
-                "job_id": str(job.id),
-                "error": "Conversion failed",
-                "details": str(e),
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-
+@method_decorator(csrf_exempt, name="dispatch")
 class FileUploadJsonToCsvView(APIView):
     """
-    Upload a JSON file with optional rules, convert to CSV, and create an output file.
+    Upload a JSON file with optional user-defined transform code, convert to CSV.
 
     POST /api/mapping/file/json-to-csv/
     Content-Type: multipart/form-data
 
     Fields:
         file (required): JSON file to convert
-        rules (optional): JSON string with transformation rules
+        function_name (optional): User-given name for the transform
+        rules_code (optional): Python code with a def apply_rules(row): function
+        delimiter (optional): CSV delimiter character (default: ,)
+        quote_data (optional): Whether to quote data fields (default: true)
+        quote_header (optional): Whether to quote header row (default: false)
     """
 
     parser_classes = [MultiPartParser, FormParser]
@@ -151,16 +60,20 @@ class FileUploadJsonToCsvView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Parse rules
-        rules = _parse_rules(request.data.get("rules", "{}"))
-        if isinstance(rules, Response):
-            return rules
+        function_name = request.data.get("function_name", "").strip()
+        rules_code = request.data.get("rules_code", "").strip()
+
+        # CSV options
+        delimiter = request.data.get("delimiter", ",") or ","
+        quote_data = request.data.get("quote_data", "true").lower() in ("true", "1", "yes")
+        quote_header = request.data.get("quote_header", "false").lower() in ("true", "1", "yes")
 
         # Create job record
         job = ConversionJob.objects.create(
             direction="json_to_csv",
             input_filename=filename,
-            rules=rules,
+            function_name=function_name,
+            rules_code=rules_code,
         )
 
         # Read file content first (before save consumes the stream)
@@ -174,8 +87,14 @@ class FileUploadJsonToCsvView(APIView):
             job.status = "processing"
             job.save(update_fields=["status"])
 
-            # Run conversion with rules
-            result = json_to_csv_file_mapper(content, rules=rules)
+            # Run conversion with user transform
+            result = json_to_csv_file_mapper(
+                content,
+                rules_code=rules_code,
+                delimiter=delimiter,
+                quote_data=quote_data,
+                quote_header=quote_header,
+            )
 
             # Generate output filename
             base_name = os.path.splitext(filename)[0]
@@ -199,7 +118,7 @@ class FileUploadJsonToCsvView(APIView):
                 "output_filename": job.output_filename,
                 "rows_processed": job.rows_processed,
                 "columns_count": job.columns_count,
-                "rules_applied": rules,
+                "function_name": function_name,
                 "logs": result["logs"],
                 "output": result["output"],
                 "download_url": request.build_absolute_uri(f"/api/mapping/file/jobs/{job.id}/download/"),
@@ -212,6 +131,112 @@ class FileUploadJsonToCsvView(APIView):
             job.save()
 
             logger.exception(f"JSON to CSV file conversion failed for job {job.id}")
+            return Response({
+                "job_id": str(job.id),
+                "error": "Conversion failed",
+                "details": str(e),
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class FileUploadCsvToJsonView(APIView):
+    """
+    Upload a CSV file with optional user-defined transform code, convert to JSON.
+
+    POST /api/mapping/file/csv-to-json/
+    Content-Type: multipart/form-data
+
+    Fields:
+        file (required): CSV file to convert
+        function_name (optional): User-given name for the transform
+        rules_code (optional): Python code with a def apply_rules(row): function
+        delimiter (optional): CSV delimiter character (default: ,)
+    """
+
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        uploaded_file = request.FILES.get("file")
+        if not uploaded_file:
+            return Response({"error": "No file uploaded. Send a CSV file in the 'file' field."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate file extension
+        filename = uploaded_file.name
+        ext = os.path.splitext(filename)[1].lower()
+        if ext not in (".csv",):
+            return Response(
+                {"error": f"Invalid file type '{ext}'. Expected .csv"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        function_name = request.data.get("function_name", "").strip()
+        rules_code = request.data.get("rules_code", "").strip()
+
+        # CSV options
+        delimiter = request.data.get("delimiter", ",") or ","
+
+        # Create job record
+        job = ConversionJob.objects.create(
+            direction="csv_to_json",
+            input_filename=filename,
+            function_name=function_name,
+            rules_code=rules_code,
+        )
+
+        # Read file content first (before save consumes the stream)
+        content = uploaded_file.read().decode("utf-8")
+        uploaded_file.seek(0)
+
+        # Save input file
+        job.input_file.save(filename, uploaded_file, save=True)
+
+        try:
+            job.status = "processing"
+            job.save(update_fields=["status"])
+
+            # Run conversion with user transform
+            result = csv_to_json_file_mapper(
+                content,
+                rules_code=rules_code,
+                delimiter=delimiter,
+            )
+
+            # Generate output filename
+            base_name = os.path.splitext(filename)[0]
+            output_filename = f"{base_name}.json"
+
+            # Save output file
+            job.output_file.save(output_filename, ContentFile(result["output"].encode("utf-8")), save=False)
+            job.output_filename = output_filename
+            job.status = "completed"
+            job.rows_processed = result.get("rows_processed", 0)
+            job.columns_count = result.get("columns_count", 0)
+            job.logs = "\n".join(result["logs"])
+            job.completed_at = timezone.now()
+            job.save()
+
+            return Response({
+                "job_id": str(job.id),
+                "status": job.status,
+                "direction": job.direction,
+                "input_filename": job.input_filename,
+                "output_filename": job.output_filename,
+                "rows_processed": job.rows_processed,
+                "columns_count": job.columns_count,
+                "function_name": function_name,
+                "logs": result["logs"],
+                "output": result["output"],
+                "download_url": request.build_absolute_uri(f"/api/mapping/file/jobs/{job.id}/download/"),
+            }, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            job.status = "failed"
+            job.error_message = str(e)
+            job.completed_at = timezone.now()
+            job.save()
+
+            logger.exception(f"CSV to JSON file conversion failed for job {job.id}")
             return Response({
                 "job_id": str(job.id),
                 "error": "Conversion failed",
@@ -250,7 +275,7 @@ class ConversionJobListView(APIView):
                 "output_filename": job.output_filename,
                 "rows_processed": job.rows_processed,
                 "columns_count": job.columns_count,
-                "rules": job.rules,
+                "function_name": job.function_name,
                 "error_message": job.error_message,
                 "created_at": job.created_at.isoformat(),
                 "completed_at": job.completed_at.isoformat() if job.completed_at else None,
@@ -279,7 +304,8 @@ class ConversionJobDetailView(APIView):
             "output_filename": job.output_filename,
             "rows_processed": job.rows_processed,
             "columns_count": job.columns_count,
-            "rules": job.rules,
+            "function_name": job.function_name,
+            "rules_code": job.rules_code,
             "logs": job.logs,
             "error_message": job.error_message,
             "created_at": job.created_at.isoformat(),
@@ -316,20 +342,3 @@ class ConversionJobDownloadView(APIView):
         return response
 
 
-def _parse_rules(rules_str: str) -> dict | Response:
-    """Parse rules JSON string. Returns dict on success, Response on error."""
-    if not rules_str or rules_str.strip() == "":
-        return {}
-    try:
-        rules = json.loads(rules_str)
-        if not isinstance(rules, dict):
-            return Response(
-                {"error": "Rules must be a JSON object"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        return rules
-    except json.JSONDecodeError as e:
-        return Response(
-            {"error": "Invalid rules JSON", "details": str(e)},
-            status=status.HTTP_400_BAD_REQUEST,
-        )

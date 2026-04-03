@@ -1,0 +1,5 @@
+row_num,sku,product_name,manufacturer,country,price,tax,total,tier
+"1","TEC-0001","LAPTOP PRO","TechBrand","USA","1299.99","104.0","1403.99","Premium"
+"2","SOU-0002","WIRELESS EARBUDS","SoundMax","Japan","79.99","6.4","86.39","Standard"
+"3","TEC-0004","TABLET MINI","TechBrand","USA","449.99","36.0","485.99","Standard"
+"4","SOU-0005","BLUETOOTH SPEAKER","SoundMax","Japan","59.99","4.8","64.79","Standard"

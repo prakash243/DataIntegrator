@@ -142,6 +142,61 @@
       font-size: 11px; color: var(--gray-600);
     }
 
+    /* Mode toggle (Simple / Advanced) */
+    .mode-toggle {
+      display: flex; gap: 4px; background: var(--gray-100);
+      padding: 3px; border-radius: 6px; margin-bottom: 16px;
+      width: fit-content;
+    }
+    .mode-btn {
+      padding: 6px 16px; border: none; background: transparent;
+      border-radius: 5px; cursor: pointer; font-size: 13px;
+      font-weight: 500; color: var(--gray-500); transition: all 0.15s;
+    }
+    .mode-btn:hover { color: var(--gray-700); }
+    .mode-btn.active { background: white; color: var(--primary); box-shadow: var(--shadow); }
+
+    /* Column rules */
+    .column-rules-list { display: flex; flex-direction: column; gap: 12px; }
+    .column-rule-item {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 12px 16px; background: var(--gray-50);
+      border: 1px solid var(--gray-200); border-radius: var(--radius);
+      flex-wrap: wrap;
+    }
+    .column-rule-item.excluded {
+      opacity: 0.5; background: var(--gray-100);
+    }
+    .col-name {
+      min-width: 120px; font-weight: 600; font-size: 13px;
+      color: var(--gray-800); padding-top: 6px;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+      word-break: break-all;
+    }
+    .col-fields { display: flex; gap: 10px; flex: 1; flex-wrap: wrap; align-items: center; }
+    .col-field { display: flex; flex-direction: column; gap: 3px; }
+    .col-field label {
+      font-size: 11px; font-weight: 600; color: var(--gray-400);
+      text-transform: uppercase; letter-spacing: 0.3px;
+    }
+    .col-field input[type="text"], .col-field select {
+      padding: 6px 10px; border: 1px solid var(--gray-200); border-radius: 5px;
+      font-size: 13px; color: var(--gray-700); background: white;
+      font-family: inherit;
+    }
+    .col-field input[type="text"]:focus, .col-field select:focus {
+      outline: none; border-color: var(--primary);
+    }
+    .col-field input[type="text"] { width: 140px; }
+    .col-field select { width: 130px; }
+    .col-field-check {
+      display: flex; align-items: center; gap: 6px; padding-top: 18px;
+    }
+    .col-field-check input[type="checkbox"] {
+      width: 15px; height: 15px; accent-color: var(--error);
+    }
+    .col-field-check label { font-size: 12px; color: var(--gray-500); }
+
     /* Direction selector */
     .direction-selector {
       display: flex; gap: 4px; background: var(--gray-100);
@@ -339,16 +394,30 @@
       </div>
     </div>
 
-    <!-- Step 3: Apply Rules Function -->
-    <div class="card hidden" id="editor-card">
+    <!-- Step 3: Transform Rules -->
+    <div class="card hidden" id="rules-card">
       <div class="card-header">
-        <span>3. Define Apply Rules Function</span>
+        <span>3. Transform Rules</span>
+        <div class="mode-toggle">
+          <button class="mode-btn active" data-mode="simple">Simple</button>
+          <button class="mode-btn" data-mode="advanced">Advanced</button>
+        </div>
       </div>
       <div class="card-body">
         <input type="text" class="fn-name-input" id="function-name"
                placeholder="Function name (e.g. clean_products, format_orders)">
-        <div class="code-editor-wrapper">
-          <textarea class="code-editor" id="code-editor" spellcheck="false">def apply_rules(row):
+
+        <!-- Simple mode: per-column rules -->
+        <div id="simple-mode">
+          <div class="column-rules-list" id="column-rules-list">
+            <!-- Populated dynamically after file upload -->
+          </div>
+        </div>
+
+        <!-- Advanced mode: code editor -->
+        <div id="advanced-mode" class="hidden">
+          <div class="code-editor-wrapper">
+            <textarea class="code-editor" id="code-editor" spellcheck="false">def apply_rules(row):
     # row is a dict, e.g. {"name": "Alice", "age": "30"}
     # Modify and return the row, or return None to skip it.
     #
@@ -359,10 +428,11 @@
     #   if row['status'] == 'inactive': return None  # filter out
     #
     return row</textarea>
-        </div>
-        <div class="code-hint">
-          Write a <code>def apply_rules(row):</code> function that receives each row as a <code>dict</code> and returns the modified row.
-          Return <code>None</code> to filter out a row. Available builtins: str, int, float, len, list, dict, round, min, max, sorted, range, etc.
+          </div>
+          <div class="code-hint">
+            Write a <code>def apply_rules(row):</code> function that receives each row as a <code>dict</code> and returns the modified row.
+            Return <code>None</code> to filter out a row. Available builtins: str, int, float, len, list, dict, round, min, max, sorted, range, etc.
+          </div>
         </div>
 
         <div class="csv-options">
@@ -476,8 +546,14 @@ const $uploadText = document.getElementById('upload-text');
 const $previewCard = document.getElementById('preview-card');
 const $previewTable = document.getElementById('preview-table');
 const $previewInfo = document.getElementById('preview-info');
-const $editorCard = document.getElementById('editor-card');
+const $rulesCard = document.getElementById('rules-card');
+const $simpleMode = document.getElementById('simple-mode');
+const $advancedMode = document.getElementById('advanced-mode');
+const $columnRulesList = document.getElementById('column-rules-list');
+const $modeBtns = document.querySelectorAll('.mode-btn');
 const $codeEditor = document.getElementById('code-editor');
+let currentMode = 'simple';
+let detectedColumns = [];
 const $functionName = document.getElementById('function-name');
 const $btnConvert = document.getElementById('btn-convert');
 const $resultSection = document.getElementById('result-section');
@@ -539,15 +615,35 @@ $directionBtns.forEach(btn => {
 
 function resetForm() {
   selectedFile = null;
+  detectedColumns = [];
   $uploadZone.classList.remove('has-file');
   $fileInfo.classList.add('hidden');
   $fileInfo.textContent = '';
   $previewCard.classList.add('hidden');
-  $editorCard.classList.add('hidden');
+  $rulesCard.classList.add('hidden');
   $resultSection.classList.add('hidden');
   $btnConvert.disabled = true;
   $fileInput.value = '';
+  $columnRulesList.innerHTML = '';
 }
+
+// ---- Mode toggle (Simple / Advanced) ----
+$modeBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const mode = btn.dataset.mode;
+    if (mode === currentMode) return;
+    currentMode = mode;
+    $modeBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if (mode === 'simple') {
+      $simpleMode.classList.remove('hidden');
+      $advancedMode.classList.add('hidden');
+    } else {
+      $simpleMode.classList.add('hidden');
+      $advancedMode.classList.remove('hidden');
+    }
+  });
+});
 
 // Set initial button text
 $btnConvert.textContent = 'Convert to CSV';
@@ -572,8 +668,8 @@ async function handleFile(file) {
   $btnConvert.disabled = false;
   $resultSection.classList.add('hidden');
 
-  // Always show the code editor after upload
-  $editorCard.classList.remove('hidden');
+  // Always show the rules card after upload
+  $rulesCard.classList.remove('hidden');
 
   // Try to parse and show preview (best-effort for large files)
   const text = await file.slice(0, 65536).text();
@@ -585,6 +681,8 @@ async function handleFile(file) {
   }
   if (parsed.headers.length > 0) {
     showPreview(parsed.headers, parsed.rows);
+    detectedColumns = parsed.headers;
+    renderColumnRules(parsed.headers);
   }
 }
 
@@ -667,6 +765,149 @@ function showPreview(headers, rows) {
   $previewTable.innerHTML = h;
 }
 
+// ---- Column Rules Rendering ----
+function renderColumnRules(headers) {
+  $columnRulesList.innerHTML = headers.map((col, i) => `
+    <div class="column-rule-item" id="col-rule-${i}">
+      <div class="col-name">${escapeHtml(col)}</div>
+      <div class="col-fields">
+        <div class="col-field">
+          <label>Rename to</label>
+          <input type="text" data-col="${escapeAttr(col)}" data-rule="rename" placeholder="${escapeAttr(col)}">
+        </div>
+        <div class="col-field">
+          <label>Transform</label>
+          <select data-col="${escapeAttr(col)}" data-rule="transform">
+            <option value="">None</option>
+            <option value="uppercase">UPPERCASE</option>
+            <option value="lowercase">lowercase</option>
+            <option value="titlecase">Title Case</option>
+            <option value="trim">Trim spaces</option>
+            <option value="strip_html">Strip HTML</option>
+          </select>
+        </div>
+        <div class="col-field">
+          <label>Default value</label>
+          <input type="text" data-col="${escapeAttr(col)}" data-rule="default" placeholder="if empty...">
+        </div>
+        <div class="col-field-check">
+          <input type="checkbox" id="exclude-${i}" data-col="${escapeAttr(col)}" data-rule="exclude">
+          <label for="exclude-${i}">Exclude</label>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  // Toggle visual dimming on exclude
+  $columnRulesList.querySelectorAll('[data-rule="exclude"]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      cb.closest('.column-rule-item').classList.toggle('excluded', cb.checked);
+    });
+  });
+}
+
+function escapeAttr(str) {
+  return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function generateRulesCode() {
+  const rules = [];
+  const excludes = [];
+  const renames = [];
+  const transforms = [];
+  const defaults = [];
+
+  detectedColumns.forEach(col => {
+    const getVal = (rule) => {
+      const el = $columnRulesList.querySelector(`[data-col="${CSS.escape(col)}"][data-rule="${rule}"]`);
+      if (!el) return '';
+      if (el.type === 'checkbox') return el.checked;
+      return el.value.trim();
+    };
+
+    const exclude = getVal('exclude');
+    const rename = getVal('rename');
+    const transform = getVal('transform');
+    const defaultVal = getVal('default');
+
+    if (exclude) { excludes.push(col); return; }
+    if (rename) renames.push({ from: col, to: rename });
+    if (transform) transforms.push({ col: rename || col, type: transform, origCol: col });
+    if (defaultVal) defaults.push({ col: rename || col, value: defaultVal, origCol: col });
+  });
+
+  // If nothing is configured, return empty string (no transform)
+  if (!excludes.length && !renames.length && !transforms.length && !defaults.length) {
+    return '';
+  }
+
+  let code = 'def apply_rules(row):\n';
+
+  // Excludes
+  if (excludes.length) {
+    excludes.forEach(col => {
+      code += `    row.pop('${escapePy(col)}', None)\n`;
+    });
+    code += '\n';
+  }
+
+  // Defaults (before rename so we reference original names)
+  if (defaults.length) {
+    defaults.forEach(d => {
+      code += `    if not row.get('${escapePy(d.origCol)}'):\n`;
+      code += `        row['${escapePy(d.origCol)}'] = '${escapePy(d.value)}'\n`;
+    });
+    code += '\n';
+  }
+
+  // Renames
+  if (renames.length) {
+    renames.forEach(r => {
+      code += `    row['${escapePy(r.to)}'] = row.pop('${escapePy(r.from)}', '')\n`;
+    });
+    code += '\n';
+  }
+
+  // Transforms
+  if (transforms.length) {
+    transforms.forEach((t, i) => {
+      const colName = escapePy(t.col);
+      switch (t.type) {
+        case 'uppercase':
+          code += `    row['${colName}'] = str(row.get('${colName}', '')).upper()\n`; break;
+        case 'lowercase':
+          code += `    row['${colName}'] = str(row.get('${colName}', '')).lower()\n`; break;
+        case 'titlecase':
+          code += `    row['${colName}'] = str(row.get('${colName}', '')).title()\n`; break;
+        case 'trim':
+          code += `    row['${colName}'] = str(row.get('${colName}', '')).strip()\n`; break;
+        case 'strip_html': {
+          const v = `_v${i}`;
+          const c = `_c${i}`;
+          const tg = `_t${i}`;
+          const ch = `_ch${i}`;
+          code += `    ${v} = str(row.get('${colName}', ''))\n`;
+          code += `    ${c}, ${tg} = '', False\n`;
+          code += `    for ${ch} in ${v}:\n`;
+          code += `        if ${ch} == '<': ${tg} = True\n`;
+          code += `        elif ${ch} == '>': ${tg} = False\n`;
+          code += `        elif not ${tg}: ${c} += ${ch}\n`;
+          code += `    row['${colName}'] = ${c}.strip()\n`;
+          break;
+        }
+      }
+    });
+    code += '\n';
+  }
+
+  code += '    return row\n';
+  return code;
+}
+
+function escapePy(str) {
+  return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
 // ---- Tab key in code editor ----
 $codeEditor.addEventListener('keydown', e => {
   if (e.key === 'Tab') {
@@ -692,7 +933,8 @@ $btnConvert.addEventListener('click', async () => {
   const formData = new FormData();
   formData.append('file', selectedFile);
   formData.append('function_name', $functionName.value.trim());
-  formData.append('rules_code', $codeEditor.value);
+  const rulesCode = currentMode === 'simple' ? generateRulesCode() : $codeEditor.value;
+  formData.append('rules_code', rulesCode);
   formData.append('delimiter', document.getElementById('opt-delimiter').value || ',');
   if (isJsonToCsv) {
     formData.append('quote_data', document.getElementById('opt-quote-data').checked);

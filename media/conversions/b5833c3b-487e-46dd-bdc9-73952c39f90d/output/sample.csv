@@ -1,0 +1,4 @@
+id,name,brand,price,in_stock
+"1","laptop pro","TechBrand","1299.99","True"
+"3","smart watch","WristTech","249.99","False"
+"4","tablet mini","TechBrand","449.99","True"

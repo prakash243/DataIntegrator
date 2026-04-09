@@ -1,0 +1,6 @@
+id,name,brand,price,in_stock
+"1","Laptop Pro","ABC","1299.99","True"
+"2","Wireless Earbuds","ABC","79.99","True"
+"3","Smart Watch","ABC","249.99","False"
+"4","Tablet Mini","ABC","449.99","True"
+"5","Bluetooth Speaker","ABC","59.99","True"

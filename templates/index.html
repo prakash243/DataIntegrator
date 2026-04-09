@@ -156,41 +156,30 @@
     .mode-btn:hover { color: var(--gray-700); }
     .mode-btn.active { background: white; color: var(--primary); box-shadow: var(--shadow); }
 
-    /* Column rules */
-    .column-rules-list { display: flex; flex-direction: column; gap: 12px; }
+    /* Column rules — visual code editor per column */
+    .column-rules-list { display: flex; flex-direction: column; gap: 8px; }
     .column-rule-item {
       display: flex; align-items: flex-start; gap: 12px;
-      padding: 12px 16px; background: var(--gray-50);
+      padding: 10px 16px; background: var(--gray-50);
       border: 1px solid var(--gray-200); border-radius: var(--radius);
-      flex-wrap: wrap;
-    }
-    .column-rule-item.excluded {
-      opacity: 0.5; background: var(--gray-100);
     }
     .col-name {
-      min-width: 120px; font-weight: 600; font-size: 13px;
-      color: var(--gray-800); padding-top: 6px;
+      min-width: 100px; font-weight: 600; font-size: 13px;
+      color: var(--gray-800); padding-top: 8px;
       font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-      word-break: break-all;
+      word-break: break-all; flex-shrink: 0;
     }
-    .col-fields { display: flex; gap: 10px; flex: 1; flex-wrap: wrap; align-items: center; }
-    .col-field { display: flex; flex-direction: column; gap: 3px; }
-    .col-field label {
-      font-size: 11px; font-weight: 600; color: var(--gray-400);
-      text-transform: uppercase; letter-spacing: 0.3px;
-    }
-    .col-field input[type="text"], .col-field select {
-      padding: 6px 10px; border: 1px solid var(--gray-200); border-radius: 5px;
+    .col-rule-input {
+      flex: 1; padding: 8px 12px; border: 1px solid var(--gray-200); border-radius: 5px;
       font-size: 13px; color: var(--gray-700); background: white;
-      font-family: inherit;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+      min-height: 38px; max-height: 200px; resize: vertical;
+      line-height: 1.5; tab-size: 4; field-sizing: content;
     }
-    .col-field input[type="text"]:focus, .col-field select:focus {
-      outline: none; border-color: var(--primary);
-    }
-    .col-field input[type="text"] { width: 140px; }
-    .col-field select { width: 130px; }
+    .col-rule-input:focus { outline: none; border-color: var(--primary); background: var(--primary-light); }
+    .col-rule-input::placeholder { color: var(--gray-400); font-style: italic; }
     .col-field-check {
-      display: flex; align-items: center; gap: 6px; padding-top: 18px;
+      display: flex; align-items: center; gap: 6px;
     }
     .col-field-check input[type="checkbox"] {
       width: 15px; height: 15px; accent-color: var(--error);
@@ -338,6 +327,121 @@
     @keyframes spin { to { transform: rotate(360deg); } }
 
     .hidden { display: none !important; }
+
+    /* ---- Add column button + rows ---- */
+    .btn-add-col {
+      margin-top: 10px; padding: 8px 16px; background: white; color: var(--primary);
+      border: 1px dashed var(--primary); border-radius: 6px; cursor: pointer;
+      font-size: 13px; font-weight: 500; transition: all 0.15s;
+    }
+    .btn-add-col:hover { background: var(--primary-light); }
+    .new-col-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 16px; background: var(--primary-light);
+      border: 1px solid var(--gray-200); border-radius: var(--radius);
+    }
+    .new-col-row input[type="text"] {
+      padding: 6px 10px; border: 1px solid var(--gray-200); border-radius: 5px;
+      font-size: 13px; color: var(--gray-700); background: white; font-family: inherit;
+    }
+    .new-col-row input[type="text"]:focus { outline: none; border-color: var(--primary); }
+    .new-col-row .ncol-name { width: 140px; }
+    .new-col-row .ncol-expr { flex: 1; min-width: 200px; }
+    .new-col-row .ncol-label {
+      font-size: 11px; font-weight: 600; color: var(--gray-400);
+      text-transform: uppercase; letter-spacing: 0.3px;
+    }
+    .btn-remove-col {
+      padding: 4px 8px; background: none; border: 1px solid var(--gray-300);
+      border-radius: 4px; cursor: pointer; font-size: 14px; color: var(--gray-400); line-height: 1;
+    }
+    .btn-remove-col:hover { color: var(--error); border-color: var(--error); }
+
+    /* Variable rows */
+    .var-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 16px; background: var(--warning-light);
+      border: 1px solid #fde68a; border-radius: var(--radius);
+    }
+    .var-row input[type="text"] {
+      padding: 6px 10px; border: 1px solid var(--gray-200); border-radius: 5px;
+      font-size: 13px; color: var(--gray-700); background: white;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+    }
+    .var-row input[type="text"]:focus { outline: none; border-color: var(--primary); }
+    .var-row .var-name { width: 140px; }
+    .var-row .var-value { flex: 1; min-width: 200px; }
+    .var-row .var-label {
+      font-size: 11px; font-weight: 600; color: var(--gray-400);
+      text-transform: uppercase; letter-spacing: 0.3px;
+    }
+
+    /* Local variable rows */
+    .local-var-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 16px; background: var(--success-light);
+      border: 1px solid #a7f3d0; border-radius: var(--radius);
+    }
+    .local-var-row input[type="text"] {
+      padding: 6px 10px; border: 1px solid var(--gray-200); border-radius: 5px;
+      font-size: 13px; color: var(--gray-700); background: white;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+    }
+    .local-var-row input[type="text"]:focus { outline: none; border-color: var(--primary); }
+    .local-var-row .lvar-name { width: 140px; }
+    .local-var-row .lvar-value { flex: 1; min-width: 200px; }
+    .local-var-row .lvar-label {
+      font-size: 11px; font-weight: 600; color: var(--gray-400);
+      text-transform: uppercase; letter-spacing: 0.3px;
+    }
+
+    /* Code block editor (simple mode) */
+    .code-block-editor {
+      width: 100%; min-height: 120px; padding: 14px;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 13px; line-height: 1.6; color: #e2e8f0;
+      background: #1e293b; border: 1px solid var(--gray-200); border-radius: var(--radius);
+      resize: vertical; tab-size: 4;
+    }
+    .code-block-editor:focus { outline: 2px solid var(--primary); outline-offset: -2px; }
+    .code-block-editor::placeholder { color: var(--gray-500); }
+
+    /* ---- JSON Transform tab ---- */
+    .tf-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 900px) { .tf-grid-2 { grid-template-columns: 1fr; } }
+    .tf-grid-wrapper { overflow: auto; max-height: 400px; border: 1px solid var(--gray-200); border-radius: var(--radius); }
+    .tf-data-grid { border-collapse: collapse; width: max-content; min-width: 100%; font-size: 13px; }
+    .tf-data-grid th { padding: 8px 14px; background: var(--gray-100); color: var(--gray-700); font-weight: 600; text-align: left; border-bottom: 2px solid var(--gray-200); position: sticky; top: 0; z-index: 2; white-space: nowrap; }
+    .tf-data-grid td { padding: 6px 14px; border-bottom: 1px solid var(--gray-100); white-space: nowrap; max-width: 280px; overflow: hidden; text-overflow: ellipsis; font-family: 'SF Mono', Monaco, monospace; font-size: 12px; }
+    .tf-data-grid tr:hover td { background: var(--primary-light); }
+    .tf-data-grid .row-num { color: var(--gray-400); font-size: 11px; text-align: right; min-width: 36px; background: var(--gray-50); border-right: 1px solid var(--gray-200); position: sticky; left: 0; z-index: 1; }
+    .tf-data-grid th:first-child { position: sticky; left: 0; z-index: 3; }
+    .tf-rule-editor { width: 100%; min-height: 160px; padding: 14px; font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; font-size: 13px; line-height: 1.7; color: #e2e8f0; background: var(--gray-900); border: none; border-radius: var(--radius); resize: vertical; tab-size: 4; }
+    .tf-rule-editor:focus { outline: 2px solid var(--primary); outline-offset: -2px; }
+    .tf-rule-editor::placeholder { color: var(--gray-500); }
+    .tf-btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: .15s; }
+    .tf-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .tf-btn-primary { background: var(--primary); color: white; }
+    .tf-btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+    .tf-btn-outline { background: white; color: var(--gray-700); border: 1px solid var(--gray-300); }
+    .tf-btn-outline:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+    .tf-btn-sm { padding: 6px 12px; font-size: 12px; }
+    .tf-btn-row { display: flex; gap: 10px; margin-top: 14px; align-items: center; }
+    .tf-logs { background: var(--gray-900); color: #a5f3c4; font-family: 'SF Mono', Monaco, monospace; font-size: 12px; line-height: 1.6; padding: 14px; border-radius: var(--radius); max-height: 200px; overflow-y: auto; white-space: pre-wrap; }
+    .tf-stats { display: flex; gap: 20px; flex-wrap: wrap; }
+    .tf-stat { text-align: center; }
+    .tf-stat-value { font-size: 20px; font-weight: 700; color: var(--primary); }
+    .tf-stat-label { font-size: 11px; color: var(--gray-500); text-transform: uppercase; letter-spacing: .5px; }
+    .tf-toast-container { position: fixed; top: 80px; right: 24px; z-index: 100; display: flex; flex-direction: column; gap: 8px; }
+    .tf-toast { padding: 12px 18px; border-radius: var(--radius); font-size: 13px; font-weight: 500; box-shadow: 0 10px 15px rgba(0,0,0,.1); animation: tf-slideIn .25s ease; max-width: 380px; }
+    .tf-toast-success { background: var(--success-light); color: var(--success); border: 1px solid #a7f3d0; }
+    .tf-toast-error { background: var(--error-light); color: var(--error); border: 1px solid #fca5a5; }
+    @keyframes tf-slideIn { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+    .tf-ref-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 700px) { .tf-ref-grid { grid-template-columns: 1fr; } }
+    .tf-ref-section h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--gray-400); margin-bottom: 8px; }
+    .tf-ref-section code { display: block; font-size: 12px; color: var(--gray-600); padding: 3px 0; font-family: 'SF Mono', Monaco, monospace; }
+    .tf-ref-section code em { font-style: normal; color: var(--primary); }
   </style>
 </head>
 <body>
@@ -347,6 +451,7 @@
     <div class="logo">Data Integrator <span>JSON &amp; CSV Converter</span></div>
     <div class="tabs">
       <button class="tab active" data-page="convert">Convert</button>
+      <button class="tab" data-page="transform">JSON Transform</button>
       <button class="tab" data-page="jobs">History</button>
     </div>
   </div>
@@ -409,29 +514,46 @@
 
         <!-- Simple mode: per-column rules -->
         <div id="simple-mode">
+          <!-- Variables section (above apply_rules) -->
+          <div id="variables-section" class="hidden" style="margin-bottom:16px">
+            <div style="font-weight:600;font-size:13px;color:var(--gray-600);margin-bottom:10px">Variables <span style="font-weight:400;color:var(--gray-400)">(defined above apply_rules, shared across all rows)</span></div>
+            <div id="variables-list" style="display:flex;flex-direction:column;gap:8px"></div>
+            <button type="button" id="btn-add-variable" class="btn-add-col">+ Add Variable</button>
+          </div>
+
+          <!-- Local variables (inside apply_rules, at the top) -->
+          <div id="local-vars-section" class="hidden" style="margin-bottom:16px">
+            <div style="font-weight:600;font-size:13px;color:var(--gray-600);margin-bottom:10px">Local Variables <span style="font-weight:400;color:var(--gray-400)">(inside apply_rules, created once per row)</span></div>
+            <div id="local-vars-list" style="display:flex;flex-direction:column;gap:8px"></div>
+            <button type="button" id="btn-add-local-var" class="btn-add-col">+ Add Local Variable</button>
+          </div>
+
           <div class="column-rules-list" id="column-rules-list">
             <!-- Populated dynamically after file upload -->
+          </div>
+          <!-- Additional rules -->
+          <div id="new-columns-section" class="hidden" style="margin-top:16px">
+            <div style="font-weight:600;font-size:13px;color:var(--gray-600);margin-bottom:10px">Additional Rules</div>
+            <div id="new-columns-list" style="display:flex;flex-direction:column;gap:10px"></div>
+            <button type="button" id="btn-add-column" class="btn-add-col">+ Add Line</button>
+          </div>
+
+          <!-- Code block for multi-line code (loops, if/else, etc.) -->
+          <div id="code-block-section" class="hidden" style="margin-top:16px">
+            <div style="font-weight:600;font-size:13px;color:var(--gray-600);margin-bottom:10px">Code Block <span style="font-weight:400;color:var(--gray-400)">(for loops, if/else, multi-line logic — runs inside apply_rules)</span></div>
+            <textarea class="code-block-editor" id="code-block-editor" spellcheck="false"
+              placeholder="# Write multi-line Python code here (runs inside apply_rules)&#10;# Examples:&#10;&#10;for col in ['name', 'brand']:&#10;    row[col] = str(row[col]).upper()&#10;&#10;if float(row['price']) > 100:&#10;    row['tier'] = 'Premium'&#10;else:&#10;    row['tier'] = 'Standard'"></textarea>
           </div>
         </div>
 
         <!-- Advanced mode: code editor -->
         <div id="advanced-mode" class="hidden">
           <div class="code-editor-wrapper">
-            <textarea class="code-editor" id="code-editor" spellcheck="false">def apply_rules(row):
-    # row is a dict, e.g. {"name": "Alice", "age": "30"}
-    # Modify and return the row, or return None to skip it.
-    #
-    # Examples:
-    #   row['name'] = row['name'].upper()           # uppercase
-    #   row['full'] = row['first'] + ' ' + row['last']  # new column
-    #   del row['temp_col']                          # remove column
-    #   if row['status'] == 'inactive': return None  # filter out
-    #
-    return row</textarea>
+            <textarea class="code-editor" id="code-editor" spellcheck="false"></textarea>
           </div>
           <div class="code-hint">
             Write a <code>def apply_rules(row):</code> function that receives each row as a <code>dict</code> and returns the modified row.
-            Return <code>None</code> to filter out a row. Available builtins: str, int, float, len, list, dict, round, min, max, sorted, range, etc.
+            Return <code>None</code> to filter out a row. Auto-available: datetime, timedelta, math, json, re, uuid, hashlib, base64, random, collections, etc.
           </div>
         </div>
 
@@ -481,6 +603,88 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- TRANSFORM PAGE -->
+  <div id="page-transform" class="page">
+    <div class="tf-toast-container" id="tf-toasts"></div>
+    <div class="card">
+      <div class="card-header"><span>Upload JSON File</span>
+        <span class="badge hidden" id="tf-upload-badge" style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--primary-light);color:var(--primary)"></span>
+      </div>
+      <div class="card-body">
+        <div class="upload-zone" id="tf-upload-zone">
+          <div class="upload-icon">&#128196;</div>
+          <div class="upload-text">Drop a <strong>.json</strong> file here or <strong>click to browse</strong></div>
+          <div class="file-info hidden" id="tf-file-info"></div>
+          <input type="file" id="tf-file-input" accept=".json">
+        </div>
+      </div>
+    </div>
+    <div class="card hidden" id="tf-before-card">
+      <div class="card-header"><span>Original Data</span><div class="tf-stats" id="tf-before-stats"></div></div>
+      <div class="card-body" style="padding:0"><div class="tf-grid-wrapper" id="tf-before-grid"></div></div>
+    </div>
+    <div class="tf-grid-2 hidden" id="tf-editor-area">
+      <div class="card">
+        <div class="card-header">Rule Editor</div>
+        <div class="card-body">
+          <textarea class="tf-rule-editor" id="tf-rules-input" placeholder="# Enter rules, one per line&#10;uppercase name&#10;filter age > 18&#10;sort by salary desc&#10;rename first_name to name&#10;create full_name = first_name + last_name"></textarea>
+          <div class="tf-btn-row">
+            <button class="tf-btn tf-btn-primary" id="tf-apply-btn" disabled><span id="tf-apply-text">Apply Rules</span><span id="tf-apply-spinner" class="spinner" style="display:none"></span></button>
+            <button class="tf-btn tf-btn-outline tf-btn-sm" id="tf-clear-btn">Clear</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">Rule Reference</div>
+        <div class="card-body">
+          <div class="tf-ref-grid">
+            <div class="tf-ref-section">
+              <h4>Text Transforms</h4>
+              <code>uppercase <em>column</em></code>
+              <code>lowercase <em>column</em></code>
+              <code>titlecase <em>column</em></code>
+              <code>trim <em>column</em></code>
+              <code>replace in <em>col</em> <em>old</em> with <em>new</em></code>
+              <code>regex replace <em>pat</em> with <em>rep</em> in <em>col</em></code>
+              <code>concat <em>col1</em> <em>col2</em> as <em>new</em></code>
+            </div>
+            <div class="tf-ref-section">
+              <h4>Filtering</h4>
+              <code>filter <em>col</em> &gt; <em>value</em></code>
+              <code>filter <em>col</em> equals <em>value</em></code>
+              <code>filter <em>col</em> != <em>value</em></code>
+              <code>filter <em>col</em> contains <em>text</em></code>
+              <code>filter <em>col</em> startswith <em>text</em></code>
+              <code>filter <em>col</em> endswith <em>text</em></code>
+            </div>
+            <div class="tf-ref-section">
+              <h4>Sorting</h4>
+              <code>sort by <em>col</em> asc</code>
+              <code>sort by <em>col</em> desc</code>
+              <code>sort by <em>col1</em> asc, <em>col2</em> desc</code>
+            </div>
+            <div class="tf-ref-section">
+              <h4>Column Operations</h4>
+              <code>rename <em>old</em> to <em>new</em></code>
+              <code>remove <em>column</em></code>
+              <code>duplicate <em>col</em> as <em>new</em></code>
+              <code>create <em>new</em> = <em>col1</em> + <em>col2</em></code>
+              <code>create <em>new</em> = <em>col</em> * 1.1</code>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card hidden" id="tf-logs-card">
+      <div class="card-header"><span>Execution Log</span><span class="badge" id="tf-log-badge" style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--success-light);color:var(--success)"></span></div>
+      <div class="card-body" style="padding:0"><div class="tf-logs" id="tf-logs-output"></div></div>
+    </div>
+    <div class="card hidden" id="tf-after-card">
+      <div class="card-header"><span>Transformed Data</span><div class="tf-stats" id="tf-after-stats"></div></div>
+      <div class="card-body" style="padding:0"><div class="tf-grid-wrapper" id="tf-after-grid"></div></div>
     </div>
   </div>
 
@@ -625,7 +829,49 @@ function resetForm() {
   $btnConvert.disabled = true;
   $fileInput.value = '';
   $columnRulesList.innerHTML = '';
+  document.getElementById('new-columns-list').innerHTML = '';
+  document.getElementById('new-columns-section').classList.add('hidden');
+  document.getElementById('variables-list').innerHTML = '';
+  document.getElementById('variables-section').classList.add('hidden');
+  document.getElementById('local-vars-list').innerHTML = '';
+  document.getElementById('local-vars-section').classList.add('hidden');
+  document.getElementById('code-block-editor').value = '';
+  document.getElementById('code-block-section').classList.add('hidden');
 }
+
+// ---- Real-time sync: Simple → Advanced ----
+const EDITOR_HINT = `def apply_rules(row):
+    # row is a dict — modify and return it, or return None to skip
+    #
+    # All modules auto-available (no import needed):
+    #   datetime.now(), timedelta(days=1), math.sqrt(), json.dumps()
+    #   uuid.uuid4(), hashlib.md5(), re.sub(), random.randint()
+    #   base64, collections, itertools, functools, decimal, etc.
+    #
+    # Examples:
+    #   row['name'] = str(row['name']).upper()           # uppercase
+    #   row['total'] = round(float(row['price']) * 1.08, 2)  # computed
+    #   row['created'] = datetime.now().strftime('%Y-%m-%d')  # date
+    #   row['uid'] = str(uuid.uuid4())[:8]               # unique id
+    #   row['new'] = row.pop('old', '')                   # rename
+    #   row.pop('temp', None)                             # remove
+    #   if float(row['price']) < 10: return None          # filter
+    #
+    #   for col in ['a', 'b']:                            # loop
+    #       row[col] = str(row[col]).strip()
+    #
+    return row`;
+
+function syncSimpleToAdvanced() {
+  const generated = generateRulesCode();
+  $codeEditor.value = generated || EDITOR_HINT;
+}
+
+// Listen for any input/change inside simple-mode (bubbles from all children)
+const $simpleModeEl = document.getElementById('simple-mode');
+$simpleModeEl.addEventListener('input', syncSimpleToAdvanced);
+// Also sync when rows are added/removed (DOM changes)
+new MutationObserver(syncSimpleToAdvanced).observe($simpleModeEl, { childList: true, subtree: true });
 
 // ---- Mode toggle (Simple / Advanced) ----
 $modeBtns.forEach(btn => {
@@ -639,6 +885,7 @@ $modeBtns.forEach(btn => {
       $simpleMode.classList.remove('hidden');
       $advancedMode.classList.add('hidden');
     } else {
+      syncSimpleToAdvanced();
       $simpleMode.classList.add('hidden');
       $advancedMode.classList.remove('hidden');
     }
@@ -670,6 +917,7 @@ async function handleFile(file) {
 
   // Always show the rules card after upload
   $rulesCard.classList.remove('hidden');
+  $codeEditor.value = EDITOR_HINT;
 
   // Try to parse and show preview (best-effort for large files)
   const text = await file.slice(0, 65536).text();
@@ -767,139 +1015,180 @@ function showPreview(headers, rows) {
 
 // ---- Column Rules Rendering ----
 function renderColumnRules(headers) {
-  $columnRulesList.innerHTML = headers.map((col, i) => `
+  $columnRulesList.innerHTML = headers.map((col, i) => {
+    const esc = escapeAttr(col);
+    const py = escapePy(col);
+    // Context-aware placeholders showing real Python code for this column
+    const placeholder = `row['${py}'] = str(row['${py}']).upper()`;
+    return `
     <div class="column-rule-item" id="col-rule-${i}">
       <div class="col-name">${escapeHtml(col)}</div>
-      <div class="col-fields">
-        <div class="col-field">
-          <label>Rename to</label>
-          <input type="text" data-col="${escapeAttr(col)}" data-rule="rename" placeholder="${escapeAttr(col)}">
-        </div>
-        <div class="col-field">
-          <label>Transform</label>
-          <select data-col="${escapeAttr(col)}" data-rule="transform">
-            <option value="">None</option>
-            <option value="uppercase">UPPERCASE</option>
-            <option value="lowercase">lowercase</option>
-            <option value="titlecase">Title Case</option>
-            <option value="trim">Trim spaces</option>
-            <option value="strip_html">Strip HTML</option>
-          </select>
-        </div>
-        <div class="col-field">
-          <label>Default value</label>
-          <input type="text" data-col="${escapeAttr(col)}" data-rule="default" placeholder="if empty...">
-        </div>
-        <div class="col-field-check">
-          <input type="checkbox" id="exclude-${i}" data-col="${escapeAttr(col)}" data-rule="exclude">
-          <label for="exclude-${i}">Exclude</label>
-        </div>
-      </div>
-    </div>
-  `).join('');
+      <textarea class="col-rule-input" data-col="${esc}" rows="1" placeholder="${escapeAttr(placeholder)}" spellcheck="false"></textarea>
+    </div>`;
+  }).join('');
 
-  // Toggle visual dimming on exclude
-  $columnRulesList.querySelectorAll('[data-rule="exclude"]').forEach(cb => {
-    cb.addEventListener('change', () => {
-      cb.closest('.column-rule-item').classList.toggle('excluded', cb.checked);
-    });
+  // Add Tab key support + auto-resize for column textareas
+  $columnRulesList.querySelectorAll('.col-rule-input').forEach(ta => {
+    addTabSupport(ta);
   });
+
+  // Show all sections
+  document.getElementById('variables-section').classList.remove('hidden');
+  document.getElementById('variables-list').innerHTML = '';
+  document.getElementById('local-vars-section').classList.remove('hidden');
+  document.getElementById('local-vars-list').innerHTML = '';
+  document.getElementById('new-columns-section').classList.remove('hidden');
+  document.getElementById('new-columns-list').innerHTML = '';
+  document.getElementById('code-block-section').classList.remove('hidden');
+  document.getElementById('code-block-editor').value = '';
 }
+
+// ---- Add Variable ----
+let varCounter = 0;
+document.getElementById('btn-add-variable').addEventListener('click', () => {
+  const id = ++varCounter;
+  const row = document.createElement('div');
+  row.className = 'var-row';
+  row.id = 'var-' + id;
+  row.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:3px">
+      <span class="var-label">Name</span>
+      <input type="text" class="var-name" placeholder="e.g. x, counter, lookup">
+    </div>
+    <div style="display:flex;flex-direction:column;gap:3px;flex:1">
+      <span class="var-label">Value</span>
+      <input type="text" class="var-value" placeholder="e.g. 'abc', {'n': 0}, {'TechBrand': 'USA'}">
+    </div>
+    <button type="button" class="btn-remove-col" title="Remove">&times;</button>
+  `;
+  row.querySelector('.btn-remove-col').addEventListener('click', () => row.remove());
+  document.getElementById('variables-list').appendChild(row);
+  row.querySelector('.var-name').focus();
+});
+
+// ---- Add Local Variable (inside apply_rules) ----
+let localVarCounter = 0;
+document.getElementById('btn-add-local-var').addEventListener('click', () => {
+  const id = ++localVarCounter;
+  const row = document.createElement('div');
+  row.className = 'local-var-row';
+  row.id = 'local-var-' + id;
+  row.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:3px">
+      <span class="lvar-label">Name</span>
+      <input type="text" class="lvar-name" placeholder="e.g. price, name, dept">
+    </div>
+    <div style="display:flex;flex-direction:column;gap:3px;flex:1">
+      <span class="lvar-label">Value</span>
+      <input type="text" class="lvar-value" placeholder="e.g. float(row['price']), str(row['name']).upper()">
+    </div>
+    <button type="button" class="btn-remove-col" title="Remove">&times;</button>
+  `;
+  row.querySelector('.btn-remove-col').addEventListener('click', () => row.remove());
+  document.getElementById('local-vars-list').appendChild(row);
+  row.querySelector('.lvar-name').focus();
+});
+
+// ---- Add New Column ----
+let newColCounter = 0;
+document.getElementById('btn-add-column').addEventListener('click', () => {
+  const id = ++newColCounter;
+  const row = document.createElement('div');
+  row.className = 'new-col-row';
+  row.id = 'new-col-' + id;
+  row.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:3px;flex:1">
+      <span class="ncol-label">Python code line</span>
+      <input type="text" class="ncol-expr" placeholder="row['new_col'] = str(row['col1']) + ' ' + str(row['col2'])">
+    </div>
+    <button type="button" class="btn-remove-col" title="Remove">&times;</button>
+  `;
+  row.querySelector('.btn-remove-col').addEventListener('click', () => row.remove());
+  document.getElementById('new-columns-list').appendChild(row);
+  row.querySelector('.ncol-expr').focus();
+});
 
 function escapeAttr(str) {
   return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function generateRulesCode() {
-  const rules = [];
-  const excludes = [];
-  const renames = [];
-  const transforms = [];
-  const defaults = [];
+  const globalVars = [];
+  const localVars = [];
+  const bodyLines = [];
+  let codeBlock = '';
 
-  detectedColumns.forEach(col => {
-    const getVal = (rule) => {
-      const el = $columnRulesList.querySelector(`[data-col="${CSS.escape(col)}"][data-rule="${rule}"]`);
-      if (!el) return '';
-      if (el.type === 'checkbox') return el.checked;
-      return el.value.trim();
-    };
-
-    const exclude = getVal('exclude');
-    const rename = getVal('rename');
-    const transform = getVal('transform');
-    const defaultVal = getVal('default');
-
-    if (exclude) { excludes.push(col); return; }
-    if (rename) renames.push({ from: col, to: rename });
-    if (transform) transforms.push({ col: rename || col, type: transform, origCol: col });
-    if (defaultVal) defaults.push({ col: rename || col, value: defaultVal, origCol: col });
+  // Collect global variable definitions (go above def apply_rules)
+  document.querySelectorAll('#variables-list .var-row').forEach(row => {
+    const name = row.querySelector('.var-name').value.trim();
+    const value = row.querySelector('.var-value').value.trim();
+    if (name && value) globalVars.push(name + ' = ' + value);
   });
 
-  // If nothing is configured, return empty string (no transform)
-  if (!excludes.length && !renames.length && !transforms.length && !defaults.length) {
-    return '';
-  }
+  // Collect local variable definitions (go at top of apply_rules body)
+  document.querySelectorAll('#local-vars-list .local-var-row').forEach(row => {
+    const name = row.querySelector('.lvar-name').value.trim();
+    const value = row.querySelector('.lvar-value').value.trim();
+    if (name && value) localVars.push(name + ' = ' + value);
+  });
 
-  let code = 'def apply_rules(row):\n';
+  // Collect per-column code lines (textarea — may be multi-line)
+  $columnRulesList.querySelectorAll('.col-rule-input').forEach(input => {
+    const val = input.value.trim();
+    if (val) {
+      val.split('\n').forEach(line => {
+        if (line.trim()) bodyLines.push(line);
+      });
+    }
+  });
 
-  // Excludes
-  if (excludes.length) {
-    excludes.forEach(col => {
-      code += `    row.pop('${escapePy(col)}', None)\n`;
-    });
+  // Collect new column / extra code lines
+  document.querySelectorAll('#new-columns-list .new-col-row').forEach(row => {
+    const val = row.querySelector('.ncol-expr').value.trim();
+    if (val) bodyLines.push(val);
+  });
+
+  // Collect code block (multi-line: loops, if/else, etc.)
+  codeBlock = (document.getElementById('code-block-editor').value || '').trimEnd();
+
+  if (!globalVars.length && !localVars.length && !bodyLines.length && !codeBlock) return '';
+
+  let code = '';
+
+  // Global variables go above the function
+  if (globalVars.length) {
+    globalVars.forEach(line => { code += line + '\n'; });
     code += '\n';
   }
 
-  // Defaults (before rename so we reference original names)
-  if (defaults.length) {
-    defaults.forEach(d => {
-      code += `    if not row.get('${escapePy(d.origCol)}'):\n`;
-      code += `        row['${escapePy(d.origCol)}'] = '${escapePy(d.value)}'\n`;
-    });
+  code += 'def apply_rules(row):\n';
+
+  // Local variables go first inside the function
+  if (localVars.length) {
+    localVars.forEach(line => { code += '    ' + line + '\n'; });
     code += '\n';
   }
 
-  // Renames
-  if (renames.length) {
-    renames.forEach(r => {
-      code += `    row['${escapePy(r.to)}'] = row.pop('${escapePy(r.from)}', '')\n`;
-    });
-    code += '\n';
+  // Single-line column rules + add lines
+  if (bodyLines.length) {
+    bodyLines.forEach(line => { code += '    ' + line + '\n'; });
   }
 
-  // Transforms
-  if (transforms.length) {
-    transforms.forEach((t, i) => {
-      const colName = escapePy(t.col);
-      switch (t.type) {
-        case 'uppercase':
-          code += `    row['${colName}'] = str(row.get('${colName}', '')).upper()\n`; break;
-        case 'lowercase':
-          code += `    row['${colName}'] = str(row.get('${colName}', '')).lower()\n`; break;
-        case 'titlecase':
-          code += `    row['${colName}'] = str(row.get('${colName}', '')).title()\n`; break;
-        case 'trim':
-          code += `    row['${colName}'] = str(row.get('${colName}', '')).strip()\n`; break;
-        case 'strip_html': {
-          const v = `_v${i}`;
-          const c = `_c${i}`;
-          const tg = `_t${i}`;
-          const ch = `_ch${i}`;
-          code += `    ${v} = str(row.get('${colName}', ''))\n`;
-          code += `    ${c}, ${tg} = '', False\n`;
-          code += `    for ${ch} in ${v}:\n`;
-          code += `        if ${ch} == '<': ${tg} = True\n`;
-          code += `        elif ${ch} == '>': ${tg} = False\n`;
-          code += `        elif not ${tg}: ${c} += ${ch}\n`;
-          code += `    row['${colName}'] = ${c}.strip()\n`;
-          break;
-        }
+  // Code block — indent each line by 4 spaces
+  if (codeBlock) {
+    if (bodyLines.length || localVars.length) code += '\n';
+    codeBlock.split('\n').forEach(line => {
+      if (line.trim() === '' || line.trim().startsWith('#')) {
+        code += '    ' + line.trimEnd() + '\n';
+      } else {
+        code += '    ' + line + '\n';
       }
     });
-    code += '\n';
   }
 
+  if (!localVars.length && !bodyLines.length && !codeBlock) {
+    code += '    pass\n';
+  }
   code += '    return row\n';
   return code;
 }
@@ -908,16 +1197,20 @@ function escapePy(str) {
   return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
 
-// ---- Tab key in code editor ----
-$codeEditor.addEventListener('keydown', e => {
-  if (e.key === 'Tab') {
-    e.preventDefault();
-    const start = $codeEditor.selectionStart;
-    const end = $codeEditor.selectionEnd;
-    $codeEditor.value = $codeEditor.value.substring(0, start) + '    ' + $codeEditor.value.substring(end);
-    $codeEditor.selectionStart = $codeEditor.selectionEnd = start + 4;
-  }
-});
+// ---- Tab key in code editors ----
+function addTabSupport(el) {
+  el.addEventListener('keydown', e => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const start = el.selectionStart;
+      const end = el.selectionEnd;
+      el.value = el.value.substring(0, start) + '    ' + el.value.substring(end);
+      el.selectionStart = el.selectionEnd = start + 4;
+    }
+  });
+}
+addTabSupport($codeEditor);
+addTabSupport(document.getElementById('code-block-editor'));
 
 // ---- Convert ----
 $btnConvert.addEventListener('click', async () => {
@@ -1053,6 +1346,152 @@ function escapeHtml(str) {
   div.textContent = str;
   return div.innerHTML;
 }
+
+// ========================================================================
+// JSON Transform tab
+// ========================================================================
+(function() {
+  let tfData = null;
+
+  const tfUploadZone  = document.getElementById('tf-upload-zone');
+  const tfFileInput   = document.getElementById('tf-file-input');
+  const tfFileInfo    = document.getElementById('tf-file-info');
+  const tfUploadBadge = document.getElementById('tf-upload-badge');
+  const tfBeforeCard  = document.getElementById('tf-before-card');
+  const tfBeforeGrid  = document.getElementById('tf-before-grid');
+  const tfBeforeStats = document.getElementById('tf-before-stats');
+  const tfEditorArea  = document.getElementById('tf-editor-area');
+  const tfRulesInput  = document.getElementById('tf-rules-input');
+  const tfApplyBtn    = document.getElementById('tf-apply-btn');
+  const tfApplyText   = document.getElementById('tf-apply-text');
+  const tfApplySpinner= document.getElementById('tf-apply-spinner');
+  const tfClearBtn    = document.getElementById('tf-clear-btn');
+  const tfLogsCard    = document.getElementById('tf-logs-card');
+  const tfLogsOutput  = document.getElementById('tf-logs-output');
+  const tfLogBadge    = document.getElementById('tf-log-badge');
+  const tfAfterCard   = document.getElementById('tf-after-card');
+  const tfAfterGrid   = document.getElementById('tf-after-grid');
+  const tfAfterStats  = document.getElementById('tf-after-stats');
+
+  function tfToast(msg, type) {
+    const el = document.createElement('div');
+    el.className = 'tf-toast tf-toast-' + type;
+    el.textContent = msg;
+    document.getElementById('tf-toasts').appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+  }
+
+  function tfRenderGrid(container, columns, rows) {
+    if (!rows || !rows.length) {
+      container.innerHTML = '<div class="empty-state" style="padding:40px">No data to display</div>';
+      return;
+    }
+    let h = '<table class="tf-data-grid"><thead><tr><th class="row-num">#</th>';
+    columns.forEach(c => { h += '<th>' + escapeHtml(c) + '</th>'; });
+    h += '</tr></thead><tbody>';
+    rows.forEach((row, i) => {
+      h += '<tr><td class="row-num">' + (i + 1) + '</td>';
+      columns.forEach(c => {
+        let v = row[c];
+        if (v === null || v === undefined) v = '';
+        if (typeof v === 'object') v = JSON.stringify(v);
+        h += '<td title="' + escapeHtml(String(v)) + '">' + escapeHtml(String(v)) + '</td>';
+      });
+      h += '</tr>';
+    });
+    h += '</tbody></table>';
+    container.innerHTML = h;
+  }
+
+  function tfRenderStats(container, preview) {
+    container.innerHTML =
+      '<div class="tf-stat"><div class="tf-stat-value">' + preview.total_rows + '</div><div class="tf-stat-label">Rows</div></div>' +
+      '<div class="tf-stat"><div class="tf-stat-value">' + preview.total_columns + '</div><div class="tf-stat-label">Columns</div></div>';
+  }
+
+  tfUploadZone.addEventListener('click', () => tfFileInput.click());
+  tfUploadZone.addEventListener('dragover', e => { e.preventDefault(); tfUploadZone.classList.add('dragover'); });
+  tfUploadZone.addEventListener('dragleave', () => tfUploadZone.classList.remove('dragover'));
+  tfUploadZone.addEventListener('drop', e => { e.preventDefault(); tfUploadZone.classList.remove('dragover'); if (e.dataTransfer.files.length) tfHandleFile(e.dataTransfer.files[0]); });
+  tfFileInput.addEventListener('change', () => { if (tfFileInput.files.length) tfHandleFile(tfFileInput.files[0]); });
+
+  async function tfHandleFile(file) {
+    if (!file.name.toLowerCase().endsWith('.json')) { tfToast('Please upload a .json file', 'error'); return; }
+    const fd = new FormData();
+    fd.append('file', file);
+    tfUploadZone.classList.add('has-file');
+    tfFileInfo.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB) — uploading…';
+    tfFileInfo.classList.remove('hidden');
+    try {
+      const res = await fetch(API_BASE + '/transform/upload/', { method: 'POST', body: fd });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Upload failed');
+      tfData = body.data;
+      const preview = body.preview;
+      tfFileInfo.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+      tfUploadBadge.textContent = preview.total_rows + ' rows \u00d7 ' + preview.total_columns + ' cols';
+      tfUploadBadge.classList.remove('hidden');
+      tfRenderGrid(tfBeforeGrid, preview.columns, preview.rows);
+      tfRenderStats(tfBeforeStats, preview);
+      tfBeforeCard.classList.remove('hidden');
+      tfEditorArea.classList.remove('hidden');
+      tfApplyBtn.disabled = false;
+      tfAfterCard.classList.add('hidden');
+      tfLogsCard.classList.add('hidden');
+      tfToast('File loaded — ' + preview.total_rows + ' rows', 'success');
+    } catch (err) {
+      tfToast(err.message, 'error');
+      tfFileInfo.textContent = 'Upload failed';
+      tfUploadZone.classList.remove('has-file');
+    }
+  }
+
+  tfApplyBtn.addEventListener('click', tfApplyRules);
+  tfRulesInput.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); tfApplyRules(); }
+  });
+
+  async function tfApplyRules() {
+    const rules = tfRulesInput.value.trim();
+    if (!rules) { tfToast('Enter at least one rule', 'error'); return; }
+    if (!tfData) { tfToast('Upload a JSON file first', 'error'); return; }
+    tfApplyBtn.disabled = true;
+    tfApplyText.textContent = 'Applying…';
+    tfApplySpinner.style.display = '';
+    try {
+      const res = await fetch(API_BASE + '/transform/apply/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: tfData, rules: rules }),
+      });
+      const body = await res.json();
+      if (body.logs && body.logs.length) {
+        tfLogsOutput.textContent = body.logs.join('\n');
+        tfLogBadge.textContent = body.logs.length + ' entries';
+        tfLogsCard.classList.remove('hidden');
+      }
+      if (!res.ok) throw new Error(body.error || 'Transform failed');
+      const preview = body.preview;
+      tfRenderGrid(tfAfterGrid, preview.columns, preview.rows);
+      tfRenderStats(tfAfterStats, preview);
+      tfAfterCard.classList.remove('hidden');
+      tfToast('Transform complete — ' + preview.total_rows + ' rows', 'success');
+    } catch (err) {
+      tfToast(err.message, 'error');
+      tfAfterCard.classList.add('hidden');
+    } finally {
+      tfApplyBtn.disabled = false;
+      tfApplyText.textContent = 'Apply Rules';
+      tfApplySpinner.style.display = 'none';
+    }
+  }
+
+  tfClearBtn.addEventListener('click', () => {
+    tfRulesInput.value = '';
+    tfAfterCard.classList.add('hidden');
+    tfLogsCard.classList.add('hidden');
+  });
+})();
 </script>
 </body>
 </html>

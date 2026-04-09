@@ -1,0 +1,47 @@
+[
+  {
+    "product_name": "Wireless Mouse",
+    "category": "Electronics",
+    "price": "29.99",
+    "stock_qty": "150",
+    "supplier": "TechCorp",
+    "ID": "SKU-001",
+    "s.no": 1
+  },
+  {
+    "product_name": "USB-C Hub",
+    "category": "Electronics",
+    "price": "49.99",
+    "stock_qty": "85",
+    "supplier": "TechCorp",
+    "ID": "SKU-002",
+    "s.no": 1
+  },
+  {
+    "product_name": "Standing Desk",
+    "category": "Furniture",
+    "price": "399.00",
+    "stock_qty": "12",
+    "supplier": "OfficePro",
+    "ID": "SKU-003",
+    "s.no": 1
+  },
+  {
+    "product_name": "Mechanical Keyboard",
+    "category": "Electronics",
+    "price": "89.99",
+    "stock_qty": "200",
+    "supplier": "KeyMaster",
+    "ID": "SKU-004",
+    "s.no": 1
+  },
+  {
+    "product_name": "Monitor Arm",
+    "category": "Furniture",
+    "price": "129.99",
+    "stock_qty": "45",
+    "supplier": "OfficePro",
+    "ID": "SKU-005",
+    "s.no": 1
+  }
+]

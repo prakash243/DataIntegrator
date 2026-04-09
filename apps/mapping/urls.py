@@ -13,4 +13,8 @@ urlpatterns = [
     path("file/jobs/", views_file.ConversionJobListView.as_view(), name="job-list"),
     path("file/jobs/<uuid:job_id>/", views_file.ConversionJobDetailView.as_view(), name="job-detail"),
     path("file/jobs/<uuid:job_id>/download/", views_file.ConversionJobDownloadView.as_view(), name="job-download"),
+
+    # Interactive JSON transform
+    path("transform/upload/", views_file.TransformUploadView.as_view(), name="transform-upload"),
+    path("transform/apply/", views_file.TransformApplyView.as_view(), name="transform-apply"),
 ]

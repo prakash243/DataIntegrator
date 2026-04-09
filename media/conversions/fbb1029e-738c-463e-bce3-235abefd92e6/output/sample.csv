@@ -1,0 +1,6 @@
+id,name,brand,price,in_stock
+"1","Laptop Pro","aTechBrand","1299.99","True"
+"2","Wireless Earbuds","aSoundMax","79.99","True"
+"3","Smart Watch","aWristTech","249.99","False"
+"4","Tablet Mini","aTechBrand","449.99","True"
+"5","Bluetooth Speaker","aSoundMax","59.99","True"

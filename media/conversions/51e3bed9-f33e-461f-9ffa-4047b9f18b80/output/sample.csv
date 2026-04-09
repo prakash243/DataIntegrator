@@ -1,0 +1,6 @@
+serial_no,id,product_name,manufacturer,price
+"{'n': 5}","1","Laptop Pro","TechBrand","1299.99"
+"{'n': 5}","2","Wireless Earbuds","SoundMax","79.99"
+"{'n': 5}","3","Smart Watch","WristTech","249.99"
+"{'n': 5}","4","Tablet Mini","TechBrand","449.99"
+"{'n': 5}","5","Bluetooth Speaker","SoundMax","59.99"

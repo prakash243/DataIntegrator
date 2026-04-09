@@ -73,3 +73,31 @@ def apply_rules(row):
             'value': round(price * qty, 2),
         },
     }
+
+
+from datetime import datetime, timedelta                                                                                                                    
+import math                                               
+def apply_rules(row):
+    row['created_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    row['date_only'] = datetime.now().strftime('%d/%m/%Y')
+    row['tomorrow'] = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')                                                                             
+    row['price_sqrt'] = round(math.sqrt(float(row['price'])), 2)
+    return row
+
+
+counter = {'n': 0}                                                                                                                                          
+                                                            
+def apply_rules(row):
+    counter['n'] += 1
+    row['serial_no'] = counter['n']                                                                                                                         
+    return row
+
+
+counter = {'n': 0}
+def apply_rules(row):
+    counter['n']+=1
+    row['serial_no'] = counter['n']
+    renames = {'name': 'product_name', 'brand': 'manufacturer'}
+    row = {renames.get(k, k): v for k, v in row.items()}
+    order = ['serial_no', 'id', 'product_name', 'manufacturer', 'price']
+    return {k: row[k] for k in order if k in row}

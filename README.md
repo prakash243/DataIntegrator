@@ -765,15 +765,29 @@ The function receives each row as a Python dict and returns the modified dict. R
 
 #### Visual Editor Examples (Simple Mode)
 
-The Simple mode has five sections:
+All inputs have a **dark code editor style** (dark background, light text, monospace font). The Simple mode has six sections:
 
-1. **Variables** (yellow) — Click "+ Add Variable" to define variables that go **above** `def apply_rules(row):`. These are shared across all rows (counters, lookup dicts, constants).
-2. **Local Variables** (green) — Click "+ Add Local Variable" to define variables **inside** `apply_rules` at the top of the function body. These are created fresh for each row. Use for extracting values like `price = float(row['price'])` that you reference in multiple places below.
-3. **Column rules** — One code input per detected column. Type the Python line for that column.
+1. **Variables** (yellow rows) — Click "+ Add Variable" to define variables that go **above** `def apply_rules(row):`. These are shared across all rows (counters, lookup dicts, constants).
+2. **Local Variables** (green rows) — Click "+ Add Local Variable" to define variables **inside** `apply_rules` at the top of the function body. Created fresh per row. For extracting values like `price = float(row['price'])`.
+3. **Column rules** (dark editor per column) — One textarea per detected column. Type a shorthand expression and it auto-wraps into `row['col'] = <expr>`. Supports multi-line code (Tab key for indentation).
 4. **Additional Rules** — Click "+ Add Line" for extra single-line code (new columns, filters, etc.).
-5. **Code Block** — A multi-line code editor for `for` loops, `if/else` blocks, and complex logic. Supports Tab key. Code runs inside `apply_rules` after single-line rules.
+5. **Code Block** — A multi-line code editor for `for` loops, `if/else` blocks, and complex logic.
+6. **Column Order** — Drag-and-drop chips to reorder output columns. Click "+ Add to Order" to add new columns (also creates a column rule input). Click **x** to remove a column from output.
 
-When you upload a file with columns `sku`, `product_name`, `price`, `stock_qty`, `supplier`, each column shows an input with a placeholder. You type actual Python code:
+**Column rule shorthand syntax:**
+
+| What you type | What it generates | Rule |
+|---|---|---|
+| `brand.upper()` | `row['brand'] = str(row['brand']).upper()` | `col.method()` → `str(row['col']).method()` |
+| `.upper()` | `row['col'] = str(row['col']).upper()` | starts with `.` → method shorthand |
+| `float(price) * 1.08` | `row['price'] = float(row['price']) * 1.08` | bare `col` name → `row['col']` |
+| `name + ' - ' + brand` | `row['col'] = row['name'] + ' - ' + row['brand']` | resolves all column names |
+| `'Electronics'` | `row['col'] = 'Electronics'` | literal value |
+| `datetime.now().strftime(...)` | `row['col'] = datetime.now().strftime(...)` | expression |
+| `row.pop('col', None)` | `row.pop('col', None)` | starts with `row` → raw Python |
+| `if float(price) < 10: return None` | `if float(row['price']) < 10: return None` | starts with `if` → raw Python |
+
+When you upload a file with columns `sku`, `product_name`, `price`, `stock_qty`, `supplier`, each column shows a dark editor input. Type shorthand expressions:
 
 **Example with all five sections:**
 
@@ -783,11 +797,11 @@ When you upload a file with columns `sku`, `product_name`, `price`, `stock_qty`,
 | + Add Variable | `brand_country` | `{'TechBrand': 'USA', 'SoundMax': 'Japan', 'WristTech': 'South Korea'}` |
 | + Add Local Variable | `price` | `float(row['price'])` |
 | + Add Local Variable | `supplier` | `row.get('supplier', '')` |
-| Column: `sku` | | `row['ID'] = row.pop('sku', '')` |
-| Column: `product_name` | | `row['product_name'] = row['product_name'].upper()` |
+| Column: `sku` | | `row['ID'] = row.pop('sku', '')` *(raw — starts with row)* |
+| Column: `product_name` | | `product_name.upper()` *(shorthand → auto-wraps)* |
 | Column: `price` | | *(leave empty — no change)* |
-| Column: `stock_qty` | | `row.pop('stock_qty', None)` |
-| Column: `supplier` | | `row['vendor'] = row.pop('supplier', '')` |
+| Column: `stock_qty` | | `row.pop('stock_qty', None)` *(raw — starts with row)* |
+| Column: `supplier` | | `row['vendor'] = row.pop('supplier', '')` *(raw)* |
 | + Add Line | | `counter['n'] += 1` |
 | + Add Line | | `row['serial_no'] = counter['n']` |
 | + Add Line | | `row['country'] = brand_country.get(supplier, 'Unknown')` |
@@ -805,7 +819,7 @@ def apply_rules(row):
     supplier = row.get('supplier', '')
 
     row['ID'] = row.pop('sku', '')
-    row['product_name'] = row['product_name'].upper()
+    row['product_name'] = str(row['product_name']).upper()
     row.pop('stock_qty', None)
     row['vendor'] = row.pop('supplier', '')
     counter['n'] += 1
@@ -3016,30 +3030,79 @@ curl -X POST http://localhost:8000/api/mapping/file/csv-to-json/ \
 
 ---
 
-### Test 1: Simple Mode — Variables + Column Rules + Code Block
+### Test 1: Simple Mode — Shorthand Column Expressions
 
 **File:** `test_data/sample.json` (JSON to CSV)
 
-**Goal:** Add serial number, rename columns, uppercase names, add tax, filter out-of-stock, reorder columns.
+**Goal:** Test shorthand syntax where you just type expressions and the system auto-wraps them. All input fields have a dark editor style.
 
 **Steps:**
 
 1. Open **http://localhost:8001**, select **JSON to CSV**, upload `test_data/sample.json`
 2. Preview shows 5 rows: id, name, brand, price, in_stock
 
-3. **Variables section** — click "+ Add Variable" twice:
+3. **Column rules** — type in each column's dark editor input:
+
+   | Column | What you type | What it generates |
+   |---|---|---|
+   | `name` | `name.upper()` | `row['name'] = str(row['name']).upper()` |
+   | `brand` | `brand.strip().title()` | `row['brand'] = str(row['brand']).strip().title()` |
+   | `price` | `float(price) * 1.08` | `row['price'] = float(row['price']) * 1.08` |
+   | `in_stock` | *(leave empty)* | *(no change)* |
+
+4. Click **Convert to CSV**
+
+**Expected result:** 5 rows, names uppercased, brands title-cased, prices multiplied by 1.08
+
+5. Switch to **Advanced** mode — the editor shows the generated code **in real-time**:
+
+```python
+def apply_rules(row):
+    row['name'] = str(row['name']).upper()
+    row['brand'] = str(row['brand']).strip().title()
+    row['price'] = float(row['price']) * 1.08
+    return row
+```
+
+**Shorthand rules:**
+- `brand.upper()` → auto-wraps: `row['brand'] = str(row['brand']).upper()`
+- `.upper()` → shorthand dot: `row['col'] = str(row['col']).upper()`
+- `float(price) * 1.08` → resolves `price` to `row['price']`
+- `name + ' - ' + brand` → resolves both column names
+- `row.pop('col', None)` → raw Python, used as-is
+- `if float(price) < 10: return None` → raw Python, used as-is
+
+---
+
+### Test 2: Simple Mode — Variables + Column Rules + Column Order + Code Block
+
+**File:** `test_data/sample.json` (JSON to CSV)
+
+**Goal:** Full workflow: variables, shorthand column rules, add new columns with reorder, code block, serial number.
+
+**Steps:**
+
+1. Upload `test_data/sample.json`
+
+2. **Variables** — click "+ Add Variable" twice:
 
    | Name | Value |
    |---|---|
    | `counter` | `{'n': 0}` |
    | `brand_country` | `{'TechBrand': 'USA', 'SoundMax': 'Japan', 'WristTech': 'South Korea'}` |
 
-4. **Column rules** — type in each column's input:
+3. **Local Variables** — click "+ Add Local Variable":
 
-   | Column | Code |
+   | Name | Value |
    |---|---|
-   | `name` | `row['product_name'] = row.pop('name', '').upper()` |
-   | `brand` | `row['manufacturer'] = row.pop('brand', '')` |
+   | `price` | `float(row['price'])` |
+
+4. **Column rules** — type shorthand expressions:
+
+   | Column | What you type |
+   |---|---|
+   | `name` | `name.upper()` |
+   | `brand` | *(leave empty)* |
    | `in_stock` | `if not row.get('in_stock'): return None` |
 
 5. **Additional Rules** — click "+ Add Line" three times:
@@ -3048,56 +3111,63 @@ curl -X POST http://localhost:8000/api/mapping/file/csv-to-json/ \
    |---|
    | `counter['n'] += 1` |
    | `row['serial'] = counter['n']` |
-   | `row['country'] = brand_country.get(row.get('manufacturer'), 'Unknown')` |
+   | `row['country'] = brand_country.get(row.get('brand'), 'Unknown')` |
 
 6. **Code Block** — type:
 
    ```python
-   row['tax'] = round(float(row['price']) * 0.08, 2)
-   row['total'] = round(float(row['price']) * 1.08, 2)
+   row['tax'] = round(price * 0.08, 2)
+   row['total'] = round(price * 1.08, 2)
    row.pop('in_stock', None)
-
-   order = ['serial', 'id', 'product_name', 'manufacturer', 'country', 'price', 'tax', 'total']
-   row = {k: row[k] for k in order if k in row}
    ```
 
-7. Click **Convert to CSV**
+7. **Column Order** — add new columns and reorder:
+   - Type `serial` in the new column input, click **"+ Add to Order"**
+   - Type `country` → **"+ Add to Order"**
+   - Type `tax` → **"+ Add to Order"**
+   - Type `total` → **"+ Add to Order"**
+   - **Drag** chips to this order: `serial`, `id`, `name`, `brand`, `country`, `price`, `tax`, `total`
+   - **Remove** `in_stock` chip by clicking its **x**
+
+8. Click **Convert to CSV**
 
 **Expected result:** 4 rows (Smart Watch filtered out), 8 columns:
 
-| serial | id | product_name | manufacturer | country | price | tax | total |
+| serial | id | name | brand | country | price | tax | total |
 |---|---|---|---|---|---|---|---|
 | 1 | 1 | LAPTOP PRO | TechBrand | USA | 1299.99 | 104.0 | 1403.99 |
 | 2 | 2 | WIRELESS EARBUDS | SoundMax | Japan | 79.99 | 6.4 | 86.39 |
 | 3 | 4 | TABLET MINI | TechBrand | USA | 449.99 | 36.0 | 485.99 |
 | 4 | 5 | BLUETOOTH SPEAKER | SoundMax | Japan | 59.99 | 4.8 | 64.79 |
 
-8. Click **Advanced** mode — verify the generated code matches:
+9. Switch to **Advanced** mode — verify generated code:
 
 ```python
 counter = {'n': 0}
 brand_country = {'TechBrand': 'USA', 'SoundMax': 'Japan', 'WristTech': 'South Korea'}
 
 def apply_rules(row):
-    row['product_name'] = row.pop('name', '').upper()
-    row['manufacturer'] = row.pop('brand', '')
+    price = float(row['price'])
+
+    row['name'] = str(row['name']).upper()
     if not row.get('in_stock'): return None
     counter['n'] += 1
     row['serial'] = counter['n']
-    row['country'] = brand_country.get(row.get('manufacturer'), 'Unknown')
+    row['country'] = brand_country.get(row.get('brand'), 'Unknown')
 
-    row['tax'] = round(float(row['price']) * 0.08, 2)
-    row['total'] = round(float(row['price']) * 1.08, 2)
+    row['tax'] = round(price * 0.08, 2)
+    row['total'] = round(price * 1.08, 2)
     row.pop('in_stock', None)
 
-    order = ['serial', 'id', 'product_name', 'manufacturer', 'country', 'price', 'tax', 'total']
-    row = {k: row[k] for k in order if k in row}
-    return row
+    order = ['serial', 'id', 'name', 'brand', 'country', 'price', 'tax', 'total']
+    return {k: row.get(k, '') for k in order}
 ```
+
+> **Note:** The Advanced editor updates **in real-time** as you type in Simple mode — no need to switch manually. Every keystroke, variable addition, chip drag, or row removal syncs instantly.
 
 ---
 
-### Test 2: Simple Mode — For Loops in Code Block
+### Test 3: Simple Mode — For Loops in Code Block
 
 **File:** `test_data/products.csv` (CSV to JSON)
 
@@ -3144,7 +3214,7 @@ def apply_rules(row):
 
 ---
 
-### Test 3: Simple Mode — Datetime (No Import Needed)
+### Test 4: Simple Mode — Datetime (No Import Needed)
 
 **File:** `test_data/sample.json` (JSON to CSV)
 
@@ -3169,7 +3239,7 @@ def apply_rules(row):
 
 ---
 
-### Test 4: JSON Transform Tab — Natural-Language Rules
+### Test 5: JSON Transform Tab — Natural-Language Rules
 
 **File:** `test_data/sample.json`
 
@@ -3220,7 +3290,7 @@ Done: 3 rows in output
 
 ---
 
-### Test 5: JSON Transform Tab — Filter Examples
+### Test 6: JSON Transform Tab — Filter Examples
 
 **File:** `test_data/sample.json`
 
@@ -3240,7 +3310,7 @@ Done: 3 rows in output
 
 ---
 
-### Test 6: JSON Transform Tab — Reorder
+### Test 7: JSON Transform Tab — Reorder
 
 **File:** `test_data/sample.json`
 
@@ -3264,7 +3334,7 @@ reorder id, product_name, manufacturer, price
 
 ---
 
-### Test 7: CSV with Semicolon Delimiter
+### Test 8: CSV with Semicolon Delimiter
 
 **File:** `test_data/orders_semicolon.csv` (CSV to JSON)
 
@@ -3296,7 +3366,7 @@ reorder id, product_name, manufacturer, price
 
 ---
 
-### Test 8: Employees CSV — For Loop + Variables
+### Test 9: Employees CSV — For Loop + Variables
 
 **File:** `test_data/employees.csv` (CSV to JSON)
 
@@ -3353,7 +3423,7 @@ reorder id, product_name, manufacturer, price
 
 ---
 
-### Test 9: curl API Tests
+### Test 10: curl API Tests
 
 All commands use `localhost:8001` (Docker port).
 
@@ -3423,7 +3493,7 @@ curl -OJ http://localhost:8001/api/mapping/file/jobs/<job_id>/download/
 
 ---
 
-### Test 10: Error Handling
+### Test 11: Error Handling
 
 **Wrong function name:**
 ```python

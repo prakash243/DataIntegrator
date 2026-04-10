@@ -170,14 +170,14 @@
       word-break: break-all; flex-shrink: 0;
     }
     .col-rule-input {
-      flex: 1; padding: 8px 12px; border: 1px solid var(--gray-200); border-radius: 5px;
-      font-size: 13px; color: var(--gray-700); background: white;
+      flex: 1; padding: 8px 12px; border: none; border-radius: 5px;
+      font-size: 13px; color: #e2e8f0; background: var(--gray-900);
       font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
       min-height: 38px; max-height: 200px; resize: vertical;
       line-height: 1.5; tab-size: 4; field-sizing: content;
     }
-    .col-rule-input:focus { outline: none; border-color: var(--primary); background: var(--primary-light); }
-    .col-rule-input::placeholder { color: var(--gray-400); font-style: italic; }
+    .col-rule-input:focus { outline: 2px solid var(--primary); outline-offset: -2px; }
+    .col-rule-input::placeholder { color: var(--gray-500); font-style: italic; }
     .col-field-check {
       display: flex; align-items: center; gap: 6px;
     }
@@ -335,17 +335,21 @@
       font-size: 13px; font-weight: 500; transition: all 0.15s;
     }
     .btn-add-col:hover { background: var(--primary-light); }
+    /* Shared editor-style input */
+    .editor-input {
+      padding: 8px 12px; border: none; border-radius: 5px;
+      font-size: 13px; color: #e2e8f0; background: var(--gray-900);
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+      line-height: 1.5;
+    }
+    .editor-input:focus { outline: 2px solid var(--primary); outline-offset: -2px; }
+    .editor-input::placeholder { color: var(--gray-500); }
+
     .new-col-row {
       display: flex; align-items: center; gap: 10px;
       padding: 10px 16px; background: var(--primary-light);
       border: 1px solid var(--gray-200); border-radius: var(--radius);
     }
-    .new-col-row input[type="text"] {
-      padding: 6px 10px; border: 1px solid var(--gray-200); border-radius: 5px;
-      font-size: 13px; color: var(--gray-700); background: white; font-family: inherit;
-    }
-    .new-col-row input[type="text"]:focus { outline: none; border-color: var(--primary); }
-    .new-col-row .ncol-name { width: 140px; }
     .new-col-row .ncol-expr { flex: 1; min-width: 200px; }
     .new-col-row .ncol-label {
       font-size: 11px; font-weight: 600; color: var(--gray-400);
@@ -363,12 +367,6 @@
       padding: 8px 16px; background: var(--warning-light);
       border: 1px solid #fde68a; border-radius: var(--radius);
     }
-    .var-row input[type="text"] {
-      padding: 6px 10px; border: 1px solid var(--gray-200); border-radius: 5px;
-      font-size: 13px; color: var(--gray-700); background: white;
-      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-    }
-    .var-row input[type="text"]:focus { outline: none; border-color: var(--primary); }
     .var-row .var-name { width: 140px; }
     .var-row .var-value { flex: 1; min-width: 200px; }
     .var-row .var-label {
@@ -382,18 +380,31 @@
       padding: 8px 16px; background: var(--success-light);
       border: 1px solid #a7f3d0; border-radius: var(--radius);
     }
-    .local-var-row input[type="text"] {
-      padding: 6px 10px; border: 1px solid var(--gray-200); border-radius: 5px;
-      font-size: 13px; color: var(--gray-700); background: white;
-      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-    }
-    .local-var-row input[type="text"]:focus { outline: none; border-color: var(--primary); }
     .local-var-row .lvar-name { width: 140px; }
     .local-var-row .lvar-value { flex: 1; min-width: 200px; }
     .local-var-row .lvar-label {
       font-size: 11px; font-weight: 600; color: var(--gray-400);
       text-transform: uppercase; letter-spacing: 0.3px;
     }
+
+    /* Column reorder chips */
+    .reorder-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 5px 12px; background: white; border: 1px solid var(--gray-300);
+      border-radius: 20px; font-size: 12px; font-weight: 600;
+      font-family: 'SF Mono', Monaco, monospace; color: var(--gray-700);
+      cursor: grab; user-select: none; transition: all 0.15s;
+    }
+    .reorder-chip:hover { border-color: var(--primary); color: var(--primary); }
+    .reorder-chip.dragging { opacity: 0.4; }
+    .reorder-chip.drag-over { border-color: var(--primary); background: var(--primary-light); }
+    .reorder-chip .chip-num {
+      font-size: 10px; color: var(--gray-400); font-weight: 400; min-width: 14px; text-align: center;
+    }
+    .reorder-chip .chip-remove {
+      font-size: 14px; color: var(--gray-400); cursor: pointer; margin-left: 2px; line-height: 1;
+    }
+    .reorder-chip .chip-remove:hover { color: var(--error); }
 
     /* Code block editor (simple mode) */
     .code-block-editor {
@@ -543,6 +554,19 @@
             <div style="font-weight:600;font-size:13px;color:var(--gray-600);margin-bottom:10px">Code Block <span style="font-weight:400;color:var(--gray-400)">(for loops, if/else, multi-line logic — runs inside apply_rules)</span></div>
             <textarea class="code-block-editor" id="code-block-editor" spellcheck="false"
               placeholder="# Write multi-line Python code here (runs inside apply_rules)&#10;# Examples:&#10;&#10;for col in ['name', 'brand']:&#10;    row[col] = str(row[col]).upper()&#10;&#10;if float(row['price']) > 100:&#10;    row['tier'] = 'Premium'&#10;else:&#10;    row['tier'] = 'Standard'"></textarea>
+          </div>
+
+          <!-- Column reorder -->
+          <div id="reorder-section" class="hidden" style="margin-top:16px">
+            <div style="font-weight:600;font-size:13px;color:var(--gray-600);margin-bottom:10px">Column Order <span style="font-weight:400;color:var(--gray-400)">(drag to reorder — unlisted columns are excluded from output)</span></div>
+            <div id="reorder-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;min-height:36px;padding:10px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:var(--radius)"></div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="text" id="reorder-new-col" class="fn-name-input" style="margin-bottom:0;flex:1"
+                placeholder="New column name (e.g. tax, full_name, serial_no)">
+              <button type="button" id="btn-reorder-add" class="btn-add-col" style="margin-top:0;white-space:nowrap">+ Add to Order</button>
+            </div>
+            <input type="text" id="reorder-input" class="fn-name-input" style="margin-bottom:0;margin-top:8px"
+              placeholder="Or type full order: col1, col2, col3 (leave empty to keep original order)">
           </div>
         </div>
 
@@ -837,6 +861,9 @@ function resetForm() {
   document.getElementById('local-vars-section').classList.add('hidden');
   document.getElementById('code-block-editor').value = '';
   document.getElementById('code-block-section').classList.add('hidden');
+  document.getElementById('reorder-chips').innerHTML = '';
+  document.getElementById('reorder-input').value = '';
+  document.getElementById('reorder-section').classList.add('hidden');
 }
 
 // ---- Real-time sync: Simple → Advanced ----
@@ -1014,23 +1041,29 @@ function showPreview(headers, rows) {
 }
 
 // ---- Column Rules Rendering ----
-function renderColumnRules(headers) {
-  $columnRulesList.innerHTML = headers.map((col, i) => {
-    const esc = escapeAttr(col);
-    const py = escapePy(col);
-    // Context-aware placeholders showing real Python code for this column
-    const placeholder = `row['${py}'] = str(row['${py}']).upper()`;
-    return `
-    <div class="column-rule-item" id="col-rule-${i}">
-      <div class="col-name">${escapeHtml(col)}</div>
-      <textarea class="col-rule-input" data-col="${esc}" rows="1" placeholder="${escapeAttr(placeholder)}" spellcheck="false"></textarea>
-    </div>`;
-  }).join('');
+let colRuleCounter = 0;
 
-  // Add Tab key support + auto-resize for column textareas
-  $columnRulesList.querySelectorAll('.col-rule-input').forEach(ta => {
-    addTabSupport(ta);
-  });
+function addColumnRuleItem(col) {
+  colRuleCounter++;
+  const esc = escapeAttr(col);
+  const py = escapePy(col);
+  const placeholder = `str(row['${py}']).upper()  or  .upper()  or  row.pop('${py}', None)`;
+  const div = document.createElement('div');
+  div.className = 'column-rule-item';
+  div.id = 'col-rule-' + colRuleCounter;
+  div.innerHTML = `
+    <div class="col-name">${escapeHtml(col)}</div>
+    <textarea class="col-rule-input" data-col="${esc}" rows="1" placeholder="${escapeAttr(placeholder)}" spellcheck="false"></textarea>
+  `;
+  $columnRulesList.appendChild(div);
+  addTabSupport(div.querySelector('.col-rule-input'));
+  return div;
+}
+
+function renderColumnRules(headers) {
+  $columnRulesList.innerHTML = '';
+  colRuleCounter = 0;
+  headers.forEach(col => addColumnRuleItem(col));
 
   // Show all sections
   document.getElementById('variables-section').classList.remove('hidden');
@@ -1041,6 +1074,9 @@ function renderColumnRules(headers) {
   document.getElementById('new-columns-list').innerHTML = '';
   document.getElementById('code-block-section').classList.remove('hidden');
   document.getElementById('code-block-editor').value = '';
+  document.getElementById('reorder-section').classList.remove('hidden');
+  document.getElementById('reorder-input').value = '';
+  renderReorderChips(headers);
 }
 
 // ---- Add Variable ----
@@ -1053,11 +1089,11 @@ document.getElementById('btn-add-variable').addEventListener('click', () => {
   row.innerHTML = `
     <div style="display:flex;flex-direction:column;gap:3px">
       <span class="var-label">Name</span>
-      <input type="text" class="var-name" placeholder="e.g. x, counter, lookup">
+      <input type="text" class="var-name editor-input" placeholder="e.g. x, counter, lookup">
     </div>
     <div style="display:flex;flex-direction:column;gap:3px;flex:1">
       <span class="var-label">Value</span>
-      <input type="text" class="var-value" placeholder="e.g. 'abc', {'n': 0}, {'TechBrand': 'USA'}">
+      <input type="text" class="var-value editor-input" placeholder="e.g. 'abc', {'n': 0}, {'TechBrand': 'USA'}">
     </div>
     <button type="button" class="btn-remove-col" title="Remove">&times;</button>
   `;
@@ -1076,11 +1112,11 @@ document.getElementById('btn-add-local-var').addEventListener('click', () => {
   row.innerHTML = `
     <div style="display:flex;flex-direction:column;gap:3px">
       <span class="lvar-label">Name</span>
-      <input type="text" class="lvar-name" placeholder="e.g. price, name, dept">
+      <input type="text" class="lvar-name editor-input" placeholder="e.g. price, name, dept">
     </div>
     <div style="display:flex;flex-direction:column;gap:3px;flex:1">
       <span class="lvar-label">Value</span>
-      <input type="text" class="lvar-value" placeholder="e.g. float(row['price']), str(row['name']).upper()">
+      <input type="text" class="lvar-value editor-input" placeholder="e.g. float(row['price']), str(row['name']).upper()">
     </div>
     <button type="button" class="btn-remove-col" title="Remove">&times;</button>
   `;
@@ -1099,13 +1135,133 @@ document.getElementById('btn-add-column').addEventListener('click', () => {
   row.innerHTML = `
     <div style="display:flex;flex-direction:column;gap:3px;flex:1">
       <span class="ncol-label">Python code line</span>
-      <input type="text" class="ncol-expr" placeholder="row['new_col'] = str(row['col1']) + ' ' + str(row['col2'])">
+      <input type="text" class="ncol-expr editor-input" placeholder="row['new_col'] = str(row['col1']) + ' ' + str(row['col2'])">
     </div>
     <button type="button" class="btn-remove-col" title="Remove">&times;</button>
   `;
   row.querySelector('.btn-remove-col').addEventListener('click', () => row.remove());
   document.getElementById('new-columns-list').appendChild(row);
   row.querySelector('.ncol-expr').focus();
+});
+
+// ---- Column Reorder (drag-and-drop chips) ----
+function createReorderChip(col, container) {
+  const chip = document.createElement('span');
+  chip.className = 'reorder-chip';
+  chip.draggable = true;
+  chip.dataset.col = col;
+  chip.innerHTML = `<span class="chip-num">0</span>${escapeHtml(col)}<span class="chip-remove" title="Remove">&times;</span>`;
+
+  chip.querySelector('.chip-remove').addEventListener('click', e => {
+    e.stopPropagation();
+    chip.remove();
+    updateChipNumbers();
+    syncReorderInput();
+    syncSimpleToAdvanced();
+  });
+
+  chip.addEventListener('dragstart', e => {
+    chip.classList.add('dragging');
+    e.dataTransfer.setData('text/plain', col);
+  });
+  chip.addEventListener('dragend', () => chip.classList.remove('dragging'));
+  chip.addEventListener('dragover', e => { e.preventDefault(); chip.classList.add('drag-over'); });
+  chip.addEventListener('dragleave', () => chip.classList.remove('drag-over'));
+  chip.addEventListener('drop', e => {
+    e.preventDefault();
+    chip.classList.remove('drag-over');
+    const draggedCol = e.dataTransfer.getData('text/plain');
+    const draggedChip = container.querySelector(`[data-col="${CSS.escape(draggedCol)}"]`);
+    if (draggedChip && draggedChip !== chip) {
+      const rect = chip.getBoundingClientRect();
+      const mid = rect.left + rect.width / 2;
+      if (e.clientX < mid) {
+        container.insertBefore(draggedChip, chip);
+      } else {
+        container.insertBefore(draggedChip, chip.nextSibling);
+      }
+      updateChipNumbers();
+      syncReorderInput();
+      syncSimpleToAdvanced();
+    }
+  });
+  return chip;
+}
+
+function renderReorderChips(headers) {
+  const container = document.getElementById('reorder-chips');
+  container.innerHTML = '';
+  headers.forEach(col => {
+    container.appendChild(createReorderChip(col, container));
+  });
+  updateChipNumbers();
+}
+
+// Add new column to reorder
+document.getElementById('btn-reorder-add').addEventListener('click', () => {
+  const input = document.getElementById('reorder-new-col');
+  const name = input.value.trim();
+  if (!name) return;
+  // Check if chip already exists
+  const container = document.getElementById('reorder-chips');
+  if (container.querySelector(`[data-col="${CSS.escape(name)}"]`)) {
+    input.value = '';
+    return;
+  }
+  // Add chip to reorder
+  container.appendChild(createReorderChip(name, container));
+  updateChipNumbers();
+  syncReorderInput();
+
+  // Also add a column rule item so user can define the value
+  if (!$columnRulesList.querySelector(`[data-col="${CSS.escape(name)}"]`)) {
+    addColumnRuleItem(name);
+  }
+
+  syncSimpleToAdvanced();
+  input.value = '';
+  input.focus();
+});
+
+// Allow Enter key to add column
+document.getElementById('reorder-new-col').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    document.getElementById('btn-reorder-add').click();
+  }
+});
+
+function updateChipNumbers() {
+  document.querySelectorAll('#reorder-chips .reorder-chip').forEach((chip, i) => {
+    chip.querySelector('.chip-num').textContent = i + 1;
+  });
+}
+
+function syncReorderInput() {
+  const chips = document.querySelectorAll('#reorder-chips .reorder-chip');
+  const order = Array.from(chips).map(c => c.dataset.col);
+  document.getElementById('reorder-input').value = order.join(', ');
+}
+
+function getReorderColumns() {
+  // Prefer text input if user typed something; otherwise use chip order
+  const inputVal = document.getElementById('reorder-input').value.trim();
+  if (inputVal) {
+    return inputVal.split(',').map(s => s.trim()).filter(Boolean);
+  }
+  // Check if chips have been reordered (compare with detectedColumns)
+  const chips = document.querySelectorAll('#reorder-chips .reorder-chip');
+  const chipOrder = Array.from(chips).map(c => c.dataset.col);
+  // If chip order matches original, no reorder needed
+  if (chipOrder.length === detectedColumns.length && chipOrder.every((c, i) => c === detectedColumns[i])) {
+    return [];
+  }
+  return chipOrder;
+}
+
+// Sync text input back to chips when user types
+document.getElementById('reorder-input').addEventListener('input', function() {
+  syncSimpleToAdvanced();
 });
 
 function escapeAttr(str) {
@@ -1135,11 +1291,48 @@ function generateRulesCode() {
   // Collect per-column code lines (textarea — may be multi-line)
   $columnRulesList.querySelectorAll('.col-rule-input').forEach(input => {
     const val = input.value.trim();
-    if (val) {
-      val.split('\n').forEach(line => {
-        if (line.trim()) bodyLines.push(line);
-      });
-    }
+    const col = input.dataset.col;
+    if (!val) return;
+
+    val.split('\n').forEach(line => {
+      const l = line.trim();
+      if (!l) return;
+      const py = escapePy(col);
+      // If it's already a full statement, use as-is
+      if (/^(row\[|row\.|if |for |del |return |#)/.test(l)) {
+        bodyLines.push(line);
+      }
+      // Shorthand: .upper(), .lower(), .strip(), etc. → row['col'] = str(row['col']).method()
+      else if (l.startsWith('.')) {
+        bodyLines.push(`row['${py}'] = str(row['${py}'])${l}`);
+      }
+      // Bare column reference: col.method() or col + expr → resolve col to row['col']
+      else {
+        let expr = l;
+        // Step 1: Replace column names with placeholders to avoid double-replacement
+        const allCols = [col, ...detectedColumns.filter(c => c !== col)];
+        allCols.sort((a, b) => b.length - a.length);
+        const phMap = [];
+        allCols.forEach((c, idx) => {
+          const escaped = c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const ph = `__PH${idx}__`;
+          const pat = new RegExp('\\b' + escaped + '\\b', 'g');
+          if (pat.test(expr)) {
+            expr = expr.replace(pat, ph);
+            phMap.push({ ph, col: c });
+          }
+        });
+        // Step 2: Replace placeholders with row['col'] or str(row['col'])
+        phMap.forEach(({ ph, col: c }) => {
+          const cPy = escapePy(c);
+          // If followed by .method() → str(row['col']).method()
+          expr = expr.replaceAll(ph + '.', `str(row['${cPy}']).`);
+          // Remaining bare references → row['col']
+          expr = expr.replaceAll(ph, `row['${cPy}']`);
+        });
+        bodyLines.push(`row['${py}'] = ${expr}`);
+      }
+    });
   });
 
   // Collect new column / extra code lines
@@ -1151,7 +1344,10 @@ function generateRulesCode() {
   // Collect code block (multi-line: loops, if/else, etc.)
   codeBlock = (document.getElementById('code-block-editor').value || '').trimEnd();
 
-  if (!globalVars.length && !localVars.length && !bodyLines.length && !codeBlock) return '';
+  // Collect column reorder
+  const reorderCols = getReorderColumns();
+
+  if (!globalVars.length && !localVars.length && !bodyLines.length && !codeBlock && !reorderCols.length) return '';
 
   let code = '';
 
@@ -1184,6 +1380,15 @@ function generateRulesCode() {
         code += '    ' + line + '\n';
       }
     });
+  }
+
+  // Column reorder — goes last before return
+  if (reorderCols.length) {
+    const colList = reorderCols.map(c => "'" + escapePy(c) + "'").join(', ');
+    code += '\n';
+    code += '    order = [' + colList + ']\n';
+    code += "    return {k: row.get(k, '') for k in order}\n";
+    return code;
   }
 
   if (!localVars.length && !bodyLines.length && !codeBlock) {

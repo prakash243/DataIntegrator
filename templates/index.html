@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Data Integrator — JSON &amp; CSV Converter</title>
+  <title>Data Integrator — JSON, CSV &amp; EDI Converter</title>
   <style>
     :root {
       --primary: #4f46e5;
@@ -459,7 +459,7 @@
 
 <header class="header">
   <div class="header-inner">
-    <div class="logo">Data Integrator <span>JSON &amp; CSV Converter</span></div>
+    <div class="logo">Data Integrator <span>JSON, CSV &amp; EDI Converter</span></div>
     <div class="tabs">
       <button class="tab active" data-page="convert">Convert</button>
       <button class="tab" data-page="transform">JSON Transform</button>
@@ -477,6 +477,8 @@
     <div class="direction-selector" id="direction-selector">
       <button class="direction-btn active" data-direction="json_to_csv">JSON to CSV</button>
       <button class="direction-btn" data-direction="csv_to_json">CSV to JSON</button>
+      <button class="direction-btn" data-direction="edi_to_json">EDI to JSON</button>
+      <button class="direction-btn" data-direction="edi_to_csv">EDI to CSV</button>
     </div>
 
     <!-- Step 1: Upload -->
@@ -590,9 +592,35 @@
             <input type="checkbox" id="opt-quote-header">
             <label for="opt-quote-header">Quote header</label>
           </div>
-          <div class="opt-group">
+          <div class="opt-group" id="opt-group-delimiter">
             <label>Delimiter</label>
             <input type="text" id="opt-delimiter" placeholder="," maxlength="1">
+          </div>
+        </div>
+
+        <!-- EDI options (shown only for EDI directions) -->
+        <div class="csv-options hidden" id="edi-options">
+          <div class="opt-group">
+            <label>Transaction Set</label>
+            <select id="opt-edi-transaction-set" class="filter-select" style="width:auto">
+              <option value="">Auto-Detect</option>
+            </select>
+          </div>
+          <div class="opt-group">
+            <input type="checkbox" id="opt-edi-envelope" checked>
+            <label for="opt-edi-envelope">Include envelope fields</label>
+          </div>
+          <div class="opt-group hidden" id="edi-csv-delimiter-group">
+            <label>CSV Delimiter</label>
+            <input type="text" id="opt-edi-csv-delimiter" placeholder="," maxlength="1">
+          </div>
+          <div class="opt-group hidden" id="edi-csv-quote-data-group">
+            <input type="checkbox" id="opt-edi-csv-quote-data" checked>
+            <label for="opt-edi-csv-quote-data">Quote data</label>
+          </div>
+          <div class="opt-group hidden" id="edi-csv-quote-header-group">
+            <input type="checkbox" id="opt-edi-csv-quote-header">
+            <label for="opt-edi-csv-quote-header">Quote header</label>
           </div>
         </div>
       </div>
@@ -810,6 +838,13 @@ $tabs.forEach(tab => {
 });
 
 // ---- Direction switching ----
+const DIR_CONFIG = {
+  json_to_csv: { inputType: 'JSON', outputType: 'CSV', inputExt: '.json', accept: '.json' },
+  csv_to_json: { inputType: 'CSV', outputType: 'JSON', inputExt: '.csv', accept: '.csv' },
+  edi_to_json: { inputType: 'EDI', outputType: 'JSON', inputExt: '.edi', accept: '.edi,.x12,.txt' },
+  edi_to_csv:  { inputType: 'EDI', outputType: 'CSV',  inputExt: '.edi', accept: '.edi,.x12,.txt' },
+};
+
 $directionBtns.forEach(btn => {
   btn.addEventListener('click', () => {
     const dir = btn.dataset.direction;
@@ -818,25 +853,30 @@ $directionBtns.forEach(btn => {
     $directionBtns.forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
 
-    // Update UI labels
+    const cfg = DIR_CONFIG[dir];
+    $uploadLabel.textContent = cfg.inputType;
+    $uploadExt.textContent = cfg.inputExt;
+    $uploadText.innerHTML = `Drag & drop your ${cfg.inputType} file here or <strong>click to browse</strong>`;
+    $fileInput.accept = cfg.accept;
+    $btnConvert.textContent = `Convert to ${cfg.outputType}`;
+    $outputLabel.textContent = `${cfg.outputType} Output`;
+    $downloadLabel.textContent = `Download ${cfg.outputType}`;
+
+    const isEdi = dir.startsWith('edi_');
     const isJsonToCsv = dir === 'json_to_csv';
-    const inputType = isJsonToCsv ? 'JSON' : 'CSV';
-    const outputType = isJsonToCsv ? 'CSV' : 'JSON';
-    const inputExt = isJsonToCsv ? '.json' : '.csv';
+    const isEdiToCsv = dir === 'edi_to_csv';
 
-    $uploadLabel.textContent = inputType;
-    $uploadExt.textContent = inputExt;
-    $uploadText.innerHTML = `Drag & drop your ${inputType} file here or <strong>click to browse</strong>`;
-    $fileInput.accept = inputExt;
-    $btnConvert.textContent = `Convert to ${outputType}`;
-    $outputLabel.textContent = `${outputType} Output`;
-    $downloadLabel.textContent = `Download ${outputType}`;
-
-    // Show/hide CSV-specific quote options
+    // Show/hide CSV-specific quote options (only for json_to_csv)
     $optGroupQuoteData.style.display = isJsonToCsv ? '' : 'none';
     $optGroupQuoteHeader.style.display = isJsonToCsv ? '' : 'none';
+    document.getElementById('opt-group-delimiter').style.display = (isJsonToCsv || dir === 'csv_to_json') ? '' : 'none';
 
-    // Reset state
+    // Show/hide EDI options
+    document.getElementById('edi-options').classList.toggle('hidden', !isEdi);
+    document.getElementById('edi-csv-delimiter-group').classList.toggle('hidden', !isEdiToCsv);
+    document.getElementById('edi-csv-quote-data-group').classList.toggle('hidden', !isEdiToCsv);
+    document.getElementById('edi-csv-quote-header-group').classList.toggle('hidden', !isEdiToCsv);
+
     resetForm();
   });
 });
@@ -951,6 +991,8 @@ async function handleFile(file) {
   let parsed;
   if (currentDirection === 'csv_to_json') {
     parsed = parseCSV(text, 5);
+  } else if (currentDirection.startsWith('edi_')) {
+    parsed = parseEDI(text, 5);
   } else {
     parsed = parseJSON(text, 5);
   }
@@ -1023,6 +1065,64 @@ function parseCSVLine(line, delimiter) {
   }
   result.push(current.trim());
   return result;
+}
+
+function parseEDI(text, maxRows) {
+  try {
+    const raw = text.replace(/^\ufeff/, '').trim();
+    if (!raw.toUpperCase().startsWith('ISA')) return { headers: [], rows: [] };
+    if (raw.length < 106) return { headers: [], rows: [] };
+
+    const elemSep = raw[3];
+    const segTerm = raw[105];
+
+    const rawSegments = raw.split(segTerm).map(s => s.trim()).filter(Boolean);
+    const segments = rawSegments.map(s => s.split(elemSep));
+
+    // Collect header fields and loop items
+    const headerData = {};
+    const loopRows = [];
+    // Known loop segment IDs for common transaction sets
+    const loopSegIds = new Set(['PO1', 'IT1', 'LIN', 'SN1']);
+    const envelopeIds = new Set(['ISA', 'IEA', 'GS', 'GE', 'ST', 'SE', 'CTT']);
+
+    for (const seg of segments) {
+      const segId = (seg[0] || '').toUpperCase().trim();
+      if (envelopeIds.has(segId)) continue;
+
+      if (loopSegIds.has(segId)) {
+        const row = {};
+        seg.slice(1).forEach((val, i) => {
+          if (val) row[segId + '_' + (i + 1)] = val;
+        });
+        loopRows.push(row);
+      } else {
+        seg.slice(1).forEach((val, i) => {
+          if (val && val.trim()) {
+            headerData[segId + '_' + (i + 1)] = val.trim();
+          }
+        });
+      }
+    }
+
+    let data;
+    if (loopRows.length > 0) {
+      data = loopRows.map(lr => ({ ...headerData, ...lr }));
+    } else {
+      data = [headerData];
+    }
+
+    const seen = {};
+    data.forEach(obj => Object.keys(obj).forEach(k => { if (!(k in seen)) seen[k] = true; }));
+    const headers = Object.keys(seen);
+    const rows = [];
+    for (let i = 0; i < data.length && rows.length < maxRows; i++) {
+      rows.push(headers.map(h => data[i][h] || ''));
+    }
+    return { headers, rows };
+  } catch (e) {
+    return { headers: [], rows: [] };
+  }
 }
 
 function showPreview(headers, rows) {
@@ -1425,18 +1525,37 @@ $btnConvert.addEventListener('click', async () => {
   $btnConvert.innerHTML = '<span class="spinner"></span> Converting...';
   $resultSection.classList.add('hidden');
 
+  const endpointMap = {
+    json_to_csv: 'json-to-csv',
+    csv_to_json: 'csv-to-json',
+    edi_to_json: 'edi-to-json',
+    edi_to_csv: 'edi-to-csv',
+  };
+  const endpoint = endpointMap[currentDirection];
   const isJsonToCsv = currentDirection === 'json_to_csv';
-  const endpoint = isJsonToCsv ? 'json-to-csv' : 'csv-to-json';
+  const isEdi = currentDirection.startsWith('edi_');
 
   const formData = new FormData();
   formData.append('file', selectedFile);
   formData.append('function_name', $functionName.value.trim());
   const rulesCode = currentMode === 'simple' ? generateRulesCode() : $codeEditor.value;
   formData.append('rules_code', rulesCode);
-  formData.append('delimiter', document.getElementById('opt-delimiter').value || ',');
-  if (isJsonToCsv) {
-    formData.append('quote_data', document.getElementById('opt-quote-data').checked);
-    formData.append('quote_header', document.getElementById('opt-quote-header').checked);
+
+  if (isEdi) {
+    const ts = document.getElementById('opt-edi-transaction-set').value;
+    if (ts) formData.append('transaction_set', ts);
+    formData.append('include_envelope', document.getElementById('opt-edi-envelope').checked);
+    if (currentDirection === 'edi_to_csv') {
+      formData.append('delimiter', document.getElementById('opt-edi-csv-delimiter').value || ',');
+      formData.append('quote_data', document.getElementById('opt-edi-csv-quote-data').checked);
+      formData.append('quote_header', document.getElementById('opt-edi-csv-quote-header').checked);
+    }
+  } else {
+    formData.append('delimiter', document.getElementById('opt-delimiter').value || ',');
+    if (isJsonToCsv) {
+      formData.append('quote_data', document.getElementById('opt-quote-data').checked);
+      formData.append('quote_header', document.getElementById('opt-quote-header').checked);
+    }
   }
 
   try {
@@ -1520,7 +1639,8 @@ async function loadJobs() {
       const statusBadge = `<span class="badge badge-${job.status}">${job.status}</span>`;
       const date = new Date(job.created_at).toLocaleString();
       const fnName = job.function_name || '\u2014';
-      const dirLabel = job.direction === 'csv_to_json' ? 'CSV \u2192 JSON' : 'JSON \u2192 CSV';
+      const dirLabels = { csv_to_json: 'CSV \u2192 JSON', json_to_csv: 'JSON \u2192 CSV', edi_to_json: 'EDI \u2192 JSON', edi_to_csv: 'EDI \u2192 CSV' };
+      const dirLabel = dirLabels[job.direction] || job.direction;
       const actions = job.download_url
         ? `<a class="btn-small" href="${job.download_url}" target="_blank">&#11015; Download</a>`
         : '<span style="color:var(--gray-400);font-size:12px">No file</span>';
@@ -1696,6 +1816,23 @@ function escapeHtml(str) {
     tfAfterCard.classList.add('hidden');
     tfLogsCard.classList.add('hidden');
   });
+})();
+
+// ---- Load EDI schemas ----
+(async function loadEdiSchemas() {
+  try {
+    const res = await fetch(API_BASE + '/file/edi-schemas/');
+    const body = await res.json();
+    const select = document.getElementById('opt-edi-transaction-set');
+    if (body.schemas) {
+      body.schemas.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.transaction_set;
+        opt.textContent = s.transaction_set + ' - ' + s.name;
+        select.appendChild(opt);
+      });
+    }
+  } catch (e) { /* schemas will just show Auto-Detect */ }
 })();
 </script>
 </body>

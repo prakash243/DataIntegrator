@@ -1,0 +1,163 @@
+{
+  "transaction_set": "850",
+  "name": "Purchase Order",
+  "description": "X12 850 Purchase Order — used to place orders for goods or services",
+  "segments": {
+    "BEG": {
+      "name": "Beginning Segment for Purchase Order",
+      "elements": {
+        "1": "transaction_set_purpose",
+        "2": "purchase_order_type",
+        "3": "purchase_order_number",
+        "4": "release_number",
+        "5": "order_date"
+      }
+    },
+    "CUR": {
+      "name": "Currency",
+      "elements": {
+        "1": "entity_identifier",
+        "2": "currency_code"
+      }
+    },
+    "REF": {
+      "name": "Reference Identification",
+      "elements": {
+        "1": "reference_id_qualifier",
+        "2": "reference_id",
+        "3": "description"
+      }
+    },
+    "PER": {
+      "name": "Administrative Contact",
+      "elements": {
+        "1": "contact_function",
+        "2": "contact_name",
+        "3": "comm_qualifier_1",
+        "4": "comm_number_1",
+        "5": "comm_qualifier_2",
+        "6": "comm_number_2"
+      }
+    },
+    "TAX": {
+      "name": "Tax Reference",
+      "elements": {
+        "1": "tax_id_qualifier",
+        "2": "tax_id"
+      }
+    },
+    "FOB": {
+      "name": "F.O.B. Related Instructions",
+      "elements": {
+        "1": "shipment_method",
+        "2": "location_qualifier",
+        "3": "description"
+      }
+    },
+    "DTM": {
+      "name": "Date/Time Reference",
+      "elements": {
+        "1": "date_qualifier",
+        "2": "date",
+        "3": "time"
+      }
+    },
+    "TD5": {
+      "name": "Carrier Details",
+      "elements": {
+        "1": "routing_sequence",
+        "2": "id_code_qualifier",
+        "3": "id_code",
+        "4": "transportation_method",
+        "5": "routing"
+      }
+    },
+    "N1": {
+      "name": "Party Identification",
+      "elements": {
+        "1": "entity_identifier",
+        "2": "name",
+        "3": "id_code_qualifier",
+        "4": "id_code"
+      }
+    },
+    "N2": {
+      "name": "Additional Name Information",
+      "elements": {
+        "1": "additional_name_1",
+        "2": "additional_name_2"
+      }
+    },
+    "N3": {
+      "name": "Address Information",
+      "elements": {
+        "1": "address_line_1",
+        "2": "address_line_2"
+      }
+    },
+    "N4": {
+      "name": "Geographic Location",
+      "elements": {
+        "1": "city",
+        "2": "state",
+        "3": "postal_code",
+        "4": "country_code"
+      }
+    },
+    "PO1": {
+      "name": "Purchase Order Line Item",
+      "loop": true,
+      "elements": {
+        "1": "line_number",
+        "2": "quantity_ordered",
+        "3": "unit_of_measure",
+        "4": "unit_price",
+        "5": "basis_of_unit_price",
+        "6": "product_id_qualifier",
+        "7": "product_id",
+        "8": "product_id_qualifier_2",
+        "9": "product_id_2"
+      }
+    },
+    "PID": {
+      "name": "Product/Item Description",
+      "elements": {
+        "1": "item_description_type",
+        "2": "product_characteristic_code",
+        "3": "agency_qualifier",
+        "4": "product_description_code",
+        "5": "description"
+      }
+    },
+    "MEA": {
+      "name": "Measurements",
+      "elements": {
+        "1": "reference_id_qualifier",
+        "2": "measurement_qualifier",
+        "3": "measurement_value"
+      }
+    },
+    "SAC": {
+      "name": "Service, Promotion, Allowance, or Charge",
+      "elements": {
+        "1": "allowance_indicator",
+        "2": "service_code",
+        "3": "agency_qualifier",
+        "4": "agency_code",
+        "5": "amount"
+      }
+    },
+    "ITD": {
+      "name": "Terms of Sale/Deferred Terms",
+      "elements": {
+        "1": "terms_type",
+        "2": "terms_basis_date",
+        "3": "terms_discount_percent",
+        "4": "terms_discount_date",
+        "5": "terms_discount_days",
+        "6": "terms_net_date",
+        "7": "terms_net_days"
+      }
+    }
+  }
+}

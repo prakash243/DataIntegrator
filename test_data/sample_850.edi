@@ -1,0 +1,31 @@
+ISA*00*          *00*          *ZZ*SENDER         *ZZ*RECEIVER       *230615*1200*U*00401*000000001*0*P*>~
+GS*PO*SENDER*RECEIVER*20230615*1200*1*X*004010~
+ST*850*0001~
+BEG*00*NE*PO-2023-0451**20230615~
+CUR*BY*USD~
+REF*DP*038~
+PER*BD*John Smith*TE*555-123-4567*EM*john.smith@acme.com~
+DTM*002*20230701~
+N1*BY*Acme Corporation*92*ACME001~
+N3*100 Main Street*Suite 200~
+N4*Springfield*IL*62701*US~
+N1*ST*Acme Warehouse West*92*ACMEWH01~
+N3*500 Industrial Blvd~
+N4*Phoenix*AZ*85001*US~
+N1*SE*TechSupply Inc*92*TECH001~
+N3*789 Commerce Drive~
+N4*Austin*TX*73301*US~
+PO1*1*100*EA*25.50*PE*VP*WIDGET-A-100*UP*012345678901~
+PID*F****High-performance industrial widget, Type A~
+PO1*2*50*EA*45.00*PE*VP*WIDGET-B-200*UP*012345678902~
+PID*F****Premium grade connector, Type B~
+PO1*3*200*EA*12.75*PE*VP*BOLT-M8-50*UP*012345678903~
+PID*F****M8 hex bolt, 50mm stainless steel~
+PO1*4*75*EA*89.99*PE*VP*MOTOR-DC-12V*UP*012345678904~
+PID*F****12V DC motor, 500 RPM~
+PO1*5*30*EA*150.00*PE*VP*SENSOR-TEMP-K*UP*012345678905~
+PID*F****Type K thermocouple temperature sensor~
+CTT*5~
+SE*24*0001~
+GE*1*1~
+IEA*1*000000001~

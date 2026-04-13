@@ -1,0 +1,138 @@
+{
+  "transaction_set": "810",
+  "name": "Invoice",
+  "description": "X12 810 Invoice — used to request payment for goods or services",
+  "segments": {
+    "BIG": {
+      "name": "Beginning Segment for Invoice",
+      "elements": {
+        "1": "invoice_date",
+        "2": "invoice_number",
+        "3": "purchase_order_date",
+        "4": "purchase_order_number",
+        "5": "release_number",
+        "6": "change_order_sequence"
+      }
+    },
+    "CUR": {
+      "name": "Currency",
+      "elements": {
+        "1": "entity_identifier",
+        "2": "currency_code"
+      }
+    },
+    "REF": {
+      "name": "Reference Identification",
+      "elements": {
+        "1": "reference_id_qualifier",
+        "2": "reference_id",
+        "3": "description"
+      }
+    },
+    "N1": {
+      "name": "Party Identification",
+      "elements": {
+        "1": "entity_identifier",
+        "2": "name",
+        "3": "id_code_qualifier",
+        "4": "id_code"
+      }
+    },
+    "N3": {
+      "name": "Address Information",
+      "elements": {
+        "1": "address_line_1",
+        "2": "address_line_2"
+      }
+    },
+    "N4": {
+      "name": "Geographic Location",
+      "elements": {
+        "1": "city",
+        "2": "state",
+        "3": "postal_code",
+        "4": "country_code"
+      }
+    },
+    "DTM": {
+      "name": "Date/Time Reference",
+      "elements": {
+        "1": "date_qualifier",
+        "2": "date",
+        "3": "time"
+      }
+    },
+    "IT1": {
+      "name": "Invoice Line Item",
+      "loop": true,
+      "elements": {
+        "1": "line_number",
+        "2": "quantity_invoiced",
+        "3": "unit_of_measure",
+        "4": "unit_price",
+        "5": "basis_of_unit_price",
+        "6": "product_id_qualifier",
+        "7": "product_id",
+        "8": "product_id_qualifier_2",
+        "9": "product_id_2"
+      }
+    },
+    "PID": {
+      "name": "Product/Item Description",
+      "elements": {
+        "1": "item_description_type",
+        "2": "product_characteristic_code",
+        "3": "agency_qualifier",
+        "4": "product_description_code",
+        "5": "description"
+      }
+    },
+    "TDS": {
+      "name": "Total Monetary Value Summary",
+      "elements": {
+        "1": "total_invoice_amount",
+        "2": "amount_subject_to_terms_discount",
+        "3": "discounted_amount_due",
+        "4": "terms_discount_amount"
+      }
+    },
+    "TXI": {
+      "name": "Tax Information",
+      "elements": {
+        "1": "tax_type_code",
+        "2": "monetary_amount",
+        "3": "percent",
+        "4": "tax_jurisdiction_qualifier",
+        "5": "tax_jurisdiction"
+      }
+    },
+    "SAC": {
+      "name": "Service, Promotion, Allowance, or Charge",
+      "elements": {
+        "1": "allowance_indicator",
+        "2": "service_code",
+        "3": "agency_qualifier",
+        "4": "agency_code",
+        "5": "amount",
+        "6": "allowance_percent"
+      }
+    },
+    "ISS": {
+      "name": "Invoice Shipment Summary",
+      "elements": {
+        "1": "number_of_units_shipped",
+        "2": "unit_of_measure"
+      }
+    },
+    "CAD": {
+      "name": "Carrier Detail",
+      "elements": {
+        "1": "transportation_method",
+        "2": "equipment_initial",
+        "3": "equipment_number",
+        "4": "standard_carrier_alpha",
+        "5": "routing"
+      }
+    }
+  }
+}

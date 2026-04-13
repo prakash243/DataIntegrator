@@ -1,10 +1,12 @@
-# Data Integrator — JSON & CSV Converter
+# Data Integrator — JSON, CSV & EDI Converter
 
-A Django REST Framework application that converts between **JSON and CSV** formats using **user-defined Python rule functions**, plus an **interactive JSON Transform** tool with natural-language rules. Users upload a file, define transformations visually or in code, and get the converted output with a live preview.
+A Django REST Framework application that converts between **JSON**, **CSV**, and **EDI (X12)** formats using **user-defined Python rule functions**, plus an **interactive JSON Transform** tool with natural-language rules. Users upload a file, define transformations visually or in code, and get the converted output with a live preview.
 
 **Features:**
 - **JSON to CSV** — Upload a JSON file (array of objects), get a CSV file
 - **CSV to JSON** — Upload a CSV file, get a JSON file (array of objects)
+- **EDI to JSON** — Upload an EDI X12 file (.edi, .x12, .txt), parse segments using transaction-set schemas, get a JSON file
+- **EDI to CSV** — Upload an EDI X12 file, parse and flatten into CSV rows
 - **JSON Transform** — Upload JSON, apply natural-language rules (uppercase, filter, sort, rename, create columns), preview before/after in spreadsheet grids
 
 ## Quick Start
@@ -41,8 +43,8 @@ The app has three tabs: **Convert**, **JSON Transform**, and **History**.
 
 ### Convert Tab
 
-1. **Select direction** — JSON to CSV or CSV to JSON
-2. **Upload** a file (JSON or CSV depending on direction)
+1. **Select direction** — JSON to CSV, CSV to JSON, EDI to JSON, or EDI to CSV
+2. **Upload** a file (JSON, CSV, or EDI depending on direction)
 3. **Preview** the first 5 rows in a data table
 4. **Define rules** using either:
    - **Simple mode** — A visual editor with five sections:
@@ -83,7 +85,7 @@ Browser (index.html)
   │
   ├─▶ User uploads file
   │     └─▶ handleFile(file)                          [client-side]
-  │           ├─▶ parseJSON(text, 5) or parseCSV(text, 5)
+  │           ├─▶ parseJSON(text, 5) or parseCSV(text, 5) or parseEDI(text, 5)
   │           ├─▶ showPreview(headers, rows)
   │           └─▶ renderColumnRules(headers)
   │
@@ -111,13 +113,17 @@ Browser (index.html)
   │                     return row
   │
   ├─▶ User clicks "Convert"
-  │     └─▶ POST /api/mapping/file/json-to-csv/       [or csv-to-json]
+  │     └─▶ POST /api/mapping/file/{endpoint}/
+  │           Endpoints: json-to-csv, csv-to-json, edi-to-json, edi-to-csv
   │           Body: FormData { file, rules_code, function_name, delimiter, ... }
+  │           EDI also sends: transaction_set, include_envelope
   │
   └─▶ Server processes request
         │
         ├─▶ FileUploadJsonToCsvView.post()             [views_file.py]
         │     or FileUploadCsvToJsonView.post()
+        │     or FileUploadEdiToJsonView.post()
+        │     or FileUploadEdiToCsvView.post()
         │     ├─▶ Validates file extension
         │     ├─▶ Creates ConversionJob record          [models.py]
         │     ├─▶ Saves input file to media/conversions/<job_id>/input/
@@ -125,7 +131,9 @@ Browser (index.html)
         │
         ├─▶ json_to_csv_file_mapper(content, rules_code, ...)  [maps/json_to_csv_file.py]
         │     or csv_to_json_file_mapper(content, rules_code, ...)  [maps/csv_to_json_file.py]
-        │     ├─▶ Parses input (json.loads or csv.DictReader)
+        │     or edi_to_json_file_mapper(content, rules_code, ...)  [maps/edi_to_json_file.py]
+        │     or edi_to_csv_file_mapper(content, rules_code, ...)   [maps/edi_to_csv_file.py]
+        │     ├─▶ Parses input (json.loads, csv.DictReader, or parse_edi)
         │     ├─▶ _collect_all_keys(data) — gets column names
         │     └─▶ If rules_code provided:
         │           │
@@ -235,21 +243,26 @@ Browser  ──GET /──▶  Django (converter/urls.py)
 #### Step 1b: Select Conversion Direction (Client-Side Only)
 
 ```
-User clicks "JSON to CSV" or "CSV to JSON" button
+User clicks "JSON to CSV", "CSV to JSON", "EDI to JSON", or "EDI to CSV" button
   │
   └─▶ index.html → direction switching handler
        │
-       ├─▶ Sets `currentDirection` to "json_to_csv" or "csv_to_json"
+       ├─▶ Sets `currentDirection` using DIR_CONFIG lookup
        ├─▶ Updates upload label, file extension filter, button text
        ├─▶ Shows/hides CSV-specific options (quote data, quote header)
+       ├─▶ Shows/hides EDI-specific options (transaction set, envelope toggle)
        └─▶ Resets form state (clears file, preview, results)
 ```
 
 **What happens:**
-- The direction selector is a toggle at the top of the Convert page
-- Switching direction changes the accepted file type (`.json` or `.csv`)
+- The direction selector has four buttons at the top of the Convert page
+- Switching direction changes the accepted file type (`.json`, `.csv`, or `.edi/.x12/.txt`)
 - CSV-to-JSON mode hides the "Quote data" and "Quote header" options (not applicable)
-- The Convert button text updates to "Convert to CSV" or "Convert to JSON"
+- EDI modes show an EDI options panel with:
+  - **Transaction Set** dropdown (Auto-Detect, 850 - Purchase Order, 810 - Invoice, 856 - Advance Ship Notice)
+  - **Include envelope fields** checkbox (sender/receiver/control number in output)
+  - EDI-to-CSV also shows CSV delimiter and quoting options
+- The Convert button text updates to "Convert to JSON" or "Convert to CSV"
 
 ---
 
@@ -265,6 +278,7 @@ User drags file onto upload zone
        ├─▶ Reads first 64KB of the file: file.slice(0, 65536).text()
        ├─▶ If JSON direction: parseJSON(text, 5) — parses JSON, extracts up to 5 rows
        │   If CSV direction:  parseCSV(text, 5)  — parses CSV, extracts up to 5 rows
+       │   If EDI direction:  parseEDI(text, 5)  — tokenizes EDI segments, extracts up to 5 rows
        ├─▶ showPreview(headers, rows) — renders the data preview table
        ├─▶ renderColumnRules(headers) — renders per-column visual code inputs
        └─▶ Reveals Step 2 (preview) and Step 3 (rules editor) cards
@@ -277,6 +291,7 @@ User drags file onto upload zone
 - `parseJSON()` — best-effort JSON parse for large files (reads only first 64KB)
 - `parseCSV()` — parses CSV text by splitting lines and handling quoted fields
 - `parseCSVLine()` — handles CSV quoting (double-quote escaping, delimiters inside quotes)
+- `parseEDI()` — client-side EDI tokenizer that detects delimiters from ISA header, splits segments, and flattens header + loop items into preview rows
 - `showPreview()` — builds an HTML table showing column headers and up to 5 rows
 - `renderColumnRules()` — renders one code input per column with context-aware placeholders (e.g., `row['name'] = str(row['name']).upper()` for a column named `name`)
 
@@ -345,24 +360,47 @@ CSV to JSON:
 Browser  ──POST /api/mapping/file/csv-to-json/──▶  apps/mapping/urls.py:10
            Fields: file, function_name, rules_code,  └─▶ FileUploadCsvToJsonView
                    delimiter
+
+EDI to JSON:
+Browser  ──POST /api/mapping/file/edi-to-json/──▶  apps/mapping/urls.py:11
+           Fields: file, function_name, rules_code,  └─▶ FileUploadEdiToJsonView
+                   transaction_set, include_envelope
+
+EDI to CSV:
+Browser  ──POST /api/mapping/file/edi-to-csv/──▶   apps/mapping/urls.py:12
+           Fields: file, function_name, rules_code,  └─▶ FileUploadEdiToCsvView
+                   transaction_set, include_envelope,
+                   delimiter, quote_data, quote_header
 ```
 
 **Frontend sends the request:**
 ```javascript
-const isJsonToCsv = currentDirection === 'json_to_csv';
-const endpoint = isJsonToCsv ? 'json-to-csv' : 'csv-to-json';
+const endpointMap = {
+  json_to_csv: 'json-to-csv', csv_to_json: 'csv-to-json',
+  edi_to_json: 'edi-to-json', edi_to_csv: 'edi-to-csv',
+};
+const endpoint = endpointMap[currentDirection];
 
 const formData = new FormData();
 formData.append('file', selectedFile);
 formData.append('function_name', $functionName.value.trim());
-// In Simple mode, generateRulesCode() assembles per-column inputs into apply_rules code
-// In Advanced mode, the code editor value is used directly
 const rulesCode = currentMode === 'simple' ? generateRulesCode() : $codeEditor.value;
 formData.append('rules_code', rulesCode);
-formData.append('delimiter', ...);
-if (isJsonToCsv) {
-  formData.append('quote_data', ...);
-  formData.append('quote_header', ...);
+
+if (isEdi) {
+  formData.append('transaction_set', ...);    // e.g. '850', '' for auto-detect
+  formData.append('include_envelope', ...);   // true/false
+  if (currentDirection === 'edi_to_csv') {
+    formData.append('delimiter', ...);
+    formData.append('quote_data', ...);
+    formData.append('quote_header', ...);
+  }
+} else {
+  formData.append('delimiter', ...);
+  if (isJsonToCsv) {
+    formData.append('quote_data', ...);
+    formData.append('quote_header', ...);
+  }
 }
 
 const resp = await fetch(`${API_BASE}/file/${endpoint}/`, { method: 'POST', body: formData });
@@ -372,17 +410,18 @@ const resp = await fetch(`${API_BASE}/file/${endpoint}/`, { method: 'POST', body
 
 #### Step 5: Backend Processing
 
-**JSON to CSV:** `FileUploadJsonToCsvView.post()` in `apps/mapping/views_file.py:29`
-**CSV to JSON:** `FileUploadCsvToJsonView.post()` in `apps/mapping/views_file.py:140`
+**JSON to CSV:** `FileUploadJsonToCsvView.post()` in `apps/mapping/views_file.py`
+**CSV to JSON:** `FileUploadCsvToJsonView.post()` in `apps/mapping/views_file.py`
+**EDI to JSON:** `FileUploadEdiToJsonView.post()` in `apps/mapping/views_file.py`
+**EDI to CSV:** `FileUploadEdiToCsvView.post()` in `apps/mapping/views_file.py`
 
-Both views follow the same stages:
+All four views follow the same stages:
 
 ```
-FileUploadJsonToCsvView.post(request)       FileUploadCsvToJsonView.post(request)
-  │                                           │
-  ├─▶ 5a. Validate request                   ├─▶ 5a. Validate request
-  │     ├─▶ Check file exists                 │     ├─▶ Check file exists
-  │     └─▶ Check extension is .json          │     └─▶ Check extension is .csv
+FileUploadJsonToCsvView  │ FileUploadCsvToJsonView  │ FileUploadEdiToJsonView / EdiToCsvView
+  │                      │                         │
+  ├─▶ 5a. Validate       ├─▶ 5a. Validate          ├─▶ 5a. Validate
+  │   ext: .json         │   ext: .csv              │   ext: .edi, .x12, .txt
   │
   ├─▶ 5b. Create ConversionJob record (status: "pending")
   │     └─▶ apps/mapping/models.py:14 — ConversionJob.objects.create(
@@ -402,8 +441,10 @@ FileUploadJsonToCsvView.post(request)       FileUploadCsvToJsonView.post(request
   │
   ├─▶ 5e. Call the mapper
   │     ├─▶ JSON to CSV: json_to_csv_file_mapper(content, rules_code, delimiter, ...)
-  │     └─▶ CSV to JSON: csv_to_json_file_mapper(content, rules_code, delimiter)
-  │         (see Step 6 below)
+  │     ├─▶ CSV to JSON: csv_to_json_file_mapper(content, rules_code, delimiter)
+  │     ├─▶ EDI to JSON: edi_to_json_file_mapper(content, rules_code, transaction_set, ...)
+  │     └─▶ EDI to CSV:  edi_to_csv_file_mapper(content, rules_code, transaction_set, ...)
+  │         (see Steps 6a-6d below)
   │
   ├─▶ 5f. Save output file
   │     ├─▶ job.output_file.save(output_filename, ContentFile(output_bytes))
@@ -526,6 +567,88 @@ csv_to_json_file_mapper(content, rules_code, delimiter)
 ```
 
 > **Important:** CSV values are always strings. In your `apply_rules` function, use `int()`, `float()`, or comparisons like `row['in_stock'] == 'true'` to convert types before they are written to JSON output.
+
+---
+
+#### Step 6c: Mapper — EDI to JSON Conversion
+
+`apps/mapping/maps/edi_to_json_file.py` — `edi_to_json_file_mapper()`
+
+```
+edi_to_json_file_mapper(content, rules_code, transaction_set, include_envelope)
+  │
+  ├─▶ 6a. Parse EDI content
+  │     └─▶ parse_edi(content, transaction_set, include_envelope)  [maps/edi_parser.py]
+  │           │
+  │           ├─▶ detect_delimiters(content)
+  │           │     └─▶ Reads ISA fixed positions: element_sep (pos 3),
+  │           │         sub_element_sep (pos 104), segment_term (pos 105)
+  │           │
+  │           ├─▶ tokenize(content, delimiters)
+  │           │     └─▶ Splits by segment terminator (~), then by element separator (*)
+  │           │         Returns: list of segment arrays
+  │           │         e.g. [["ISA","00",...], ["GS","PO",...], ["ST","850","0001"], ...]
+  │           │
+  │           ├─▶ parse_envelope(segments)
+  │           │     ├─▶ Extracts ISA/IEA → interchange metadata (sender, receiver, version)
+  │           │     ├─▶ Extracts GS/GE  → functional group metadata
+  │           │     ├─▶ Extracts ST/SE  → transaction set type + control number
+  │           │     ├─▶ Extracts CTT    → total line item count
+  │           │     └─▶ Returns: (envelope_dict, business_segments_list)
+  │           │
+  │           ├─▶ load_schema(transaction_set)  [schemas/x12_850.json, etc.]
+  │           │     └─▶ Loads JSON schema that maps segment element positions
+  │           │         to human-readable field names
+  │           │         e.g. PO1 element 2 → "quantity_ordered"
+  │           │         Schemas available: 850 (Purchase Order), 810 (Invoice),
+  │           │                            856 (Advance Ship Notice)
+  │           │
+  │           └─▶ build_rows(envelope, business_segments, schema, include_envelope)
+  │                 ├─▶ Identifies loop segments (e.g. PO1 in 850, IT1 in 810)
+  │                 │   from schema "loop": true flag
+  │                 ├─▶ Collects header segment data (BEG, CUR, REF, DTM, etc.)
+  │                 ├─▶ Handles N1 party segments with entity prefix
+  │                 │   (BY_name, ST_name, SE_name, etc.)
+  │                 ├─▶ For each loop segment → creates one output row
+  │                 ├─▶ Repeats header fields on every loop row (flat output)
+  │                 └─▶ Optionally prepends envelope fields (edi_sender, edi_receiver, etc.)
+  │
+  │     Result: list of flat row dicts, one per line item
+  │     e.g. [{"edi_sender": "SENDER", "purchase_order_number": "PO-2023-0451",
+  │             "BY_name": "Acme Corp", "line_number": "1", "quantity_ordered": "100",
+  │             "unit_price": "25.50", "product_id": "WIDGET-A-100"}, ...]
+  │
+  ├─▶ 6b. Collect original column names
+  │     └─▶ _collect_all_keys(data)
+  │
+  ├─▶ 6c. Apply user rules (if rules_code is provided)
+  │     └─▶ execute_rules(data, rules_code, logs)
+  │         (see Step 7 below — same sandbox as JSON/CSV transforms)
+  │
+  ├─▶ 6d. Collect final column names
+  │
+  └─▶ 6e. Build JSON output
+        └─▶ json.dumps(data, indent=2, ensure_ascii=False)
+```
+
+---
+
+#### Step 6d: Mapper — EDI to CSV Conversion
+
+`apps/mapping/maps/edi_to_csv_file.py` — `edi_to_csv_file_mapper()`
+
+Same as Step 6c above for parsing (uses `parse_edi()`), but builds CSV output instead of JSON:
+
+```
+edi_to_csv_file_mapper(content, rules_code, transaction_set, include_envelope, delimiter, ...)
+  │
+  ├─▶ 6a-6d. Same as EDI to JSON (parse EDI → rows → apply rules)
+  │
+  └─▶ 6e. Build CSV output
+        ├─▶ Write header row (csv.writer, quoting depends on quote_header)
+        ├─▶ Write data rows (csv.DictWriter, quoting depends on quote_data)
+        └─▶ Returns CSV string
+```
 
 ---
 
@@ -731,20 +854,32 @@ The JSON Transform tab provides a separate workflow using natural-language rules
 
 | Step | File | Function / Class | Purpose |
 |------|------|-----------------|---------|
-| 1 | `converter/urls.py:10` | `TemplateView` | Serve the web UI |
-| 1b | `templates/index.html` | direction switching handler | Switch between JSON-to-CSV and CSV-to-JSON |
+| 1 | `converter/urls.py` | `TemplateView` | Serve the web UI |
+| 1b | `templates/index.html` | direction switching handler | Switch between JSON/CSV/EDI directions |
 | 2 | `templates/index.html` | `handleFile()` | Handle file upload (client-side) |
 | 2 | `templates/index.html` | `parseJSON()` | Parse JSON for preview (client-side) |
 | 2 | `templates/index.html` | `parseCSV()` | Parse CSV for preview (client-side) |
+| 2 | `templates/index.html` | `parseEDI()` | Parse EDI for preview — tokenizes segments, flattens to rows (client-side) |
 | 2 | `templates/index.html` | `showPreview()` | Render data preview table (client-side) |
 | 2 | `templates/index.html` | `renderColumnRules()` | Render per-column visual code inputs (client-side) |
 | 3 | `templates/index.html` | `generateRulesCode()` | Assemble visual inputs into `def apply_rules(row):` |
 | 4 | `templates/index.html` | `$btnConvert click` | Send POST request with FormData |
 | 5 | `apps/mapping/views_file.py` | `FileUploadJsonToCsvView` | Handle JSON upload, create job, call mapper |
 | 5 | `apps/mapping/views_file.py` | `FileUploadCsvToJsonView` | Handle CSV upload, create job, call mapper |
+| 5 | `apps/mapping/views_file.py` | `FileUploadEdiToJsonView` | Handle EDI upload, create job, call EDI-to-JSON mapper |
+| 5 | `apps/mapping/views_file.py` | `FileUploadEdiToCsvView` | Handle EDI upload, create job, call EDI-to-CSV mapper |
 | 5 | `apps/mapping/models.py` | `ConversionJob` | Database model for job tracking |
 | 6a | `apps/mapping/maps/json_to_csv_file.py` | `json_to_csv_file_mapper()` | Parse JSON, apply rules, build CSV |
 | 6b | `apps/mapping/maps/csv_to_json_file.py` | `csv_to_json_file_mapper()` | Parse CSV, apply rules, build JSON |
+| 6c | `apps/mapping/maps/edi_to_json_file.py` | `edi_to_json_file_mapper()` | Parse EDI, apply rules, build JSON |
+| 6d | `apps/mapping/maps/edi_to_csv_file.py` | `edi_to_csv_file_mapper()` | Parse EDI, apply rules, build CSV |
+| 6c/6d | `apps/mapping/maps/edi_parser.py` | `parse_edi()` | High-level EDI parser: detect delimiters, tokenize, parse envelope, map schema, build rows |
+| 6c/6d | `apps/mapping/maps/edi_parser.py` | `detect_delimiters()` | Read ISA fixed positions to find element/segment/sub-element separators |
+| 6c/6d | `apps/mapping/maps/edi_parser.py` | `tokenize()` | Split raw EDI by segment terminator, then by element separator |
+| 6c/6d | `apps/mapping/maps/edi_parser.py` | `parse_envelope()` | Extract ISA/GS/ST/SE/GE/IEA control segments from business data |
+| 6c/6d | `apps/mapping/maps/edi_parser.py` | `load_schema()` | Load transaction-set JSON schema (850, 810, 856) from `schemas/` directory |
+| 6c/6d | `apps/mapping/maps/edi_parser.py` | `map_segment()` | Map a segment's element positions to named fields using schema |
+| 6c/6d | `apps/mapping/maps/edi_parser.py` | `build_rows()` | Flatten header + loop segments into output rows with envelope fields |
 | 7 | `apps/mapping/executor.py` | `validate_code()` | Security validation of user code |
 | 7 | `apps/mapping/executor.py` | `execute_rules()` | Sandbox execute apply_rules on each row |
 | 7 | `apps/mapping/executor.py` | `execute_natural_rules()` | Parse and apply natural-language rules (JSON Transform tab) |
@@ -756,6 +891,10 @@ The JSON Transform tab provides a separate workflow using natural-language rules
 | 10 | `templates/index.html` | `loadJobs()` | Fetch and render job history (client-side) |
 | — | `apps/mapping/views_file.py` | `TransformUploadView` | Upload JSON, return table preview (JSON Transform tab) |
 | — | `apps/mapping/views_file.py` | `TransformApplyView` | Apply natural-language rules, return transformed preview |
+| — | `apps/mapping/views_file.py` | `EdiSchemaListView` | List available EDI transaction-set schemas |
+| — | `apps/mapping/schemas/x12_850.json` | — | X12 850 Purchase Order segment schema |
+| — | `apps/mapping/schemas/x12_810.json` | — | X12 810 Invoice segment schema |
+| — | `apps/mapping/schemas/x12_856.json` | — | X12 856 Advance Ship Notice segment schema |
 
 ### Apply Rules Function
 

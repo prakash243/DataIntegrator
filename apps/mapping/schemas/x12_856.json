@@ -1,0 +1,135 @@
+{
+  "transaction_set": "856",
+  "name": "Advance Ship Notice",
+  "description": "X12 856 Ship Notice/Manifest — used to notify of shipment details",
+  "segments": {
+    "BSN": {
+      "name": "Beginning Segment for Ship Notice",
+      "elements": {
+        "1": "transaction_set_purpose",
+        "2": "shipment_id",
+        "3": "date",
+        "4": "time",
+        "5": "hierarchical_structure"
+      }
+    },
+    "DTM": {
+      "name": "Date/Time Reference",
+      "elements": {
+        "1": "date_qualifier",
+        "2": "date",
+        "3": "time"
+      }
+    },
+    "HL": {
+      "name": "Hierarchical Level",
+      "elements": {
+        "1": "hierarchical_id",
+        "2": "hierarchical_parent_id",
+        "3": "hierarchical_level_code",
+        "4": "hierarchical_child_code"
+      }
+    },
+    "TD1": {
+      "name": "Carrier Details (Quantity and Weight)",
+      "elements": {
+        "1": "packaging_code",
+        "2": "lading_quantity",
+        "6": "weight_qualifier",
+        "7": "weight",
+        "8": "unit_of_measure"
+      }
+    },
+    "TD5": {
+      "name": "Carrier Details (Routing)",
+      "elements": {
+        "1": "routing_sequence",
+        "2": "id_code_qualifier",
+        "3": "id_code",
+        "4": "transportation_method",
+        "5": "routing"
+      }
+    },
+    "TD3": {
+      "name": "Carrier Details (Equipment)",
+      "elements": {
+        "1": "equipment_description_code",
+        "2": "equipment_initial",
+        "3": "equipment_number",
+        "9": "seal_number"
+      }
+    },
+    "REF": {
+      "name": "Reference Identification",
+      "elements": {
+        "1": "reference_id_qualifier",
+        "2": "reference_id",
+        "3": "description"
+      }
+    },
+    "N1": {
+      "name": "Party Identification",
+      "elements": {
+        "1": "entity_identifier",
+        "2": "name",
+        "3": "id_code_qualifier",
+        "4": "id_code"
+      }
+    },
+    "N3": {
+      "name": "Address Information",
+      "elements": {
+        "1": "address_line_1",
+        "2": "address_line_2"
+      }
+    },
+    "N4": {
+      "name": "Geographic Location",
+      "elements": {
+        "1": "city",
+        "2": "state",
+        "3": "postal_code",
+        "4": "country_code"
+      }
+    },
+    "LIN": {
+      "name": "Item Identification",
+      "loop": true,
+      "elements": {
+        "1": "assigned_id",
+        "2": "product_id_qualifier",
+        "3": "product_id",
+        "4": "product_id_qualifier_2",
+        "5": "product_id_2",
+        "6": "product_id_qualifier_3",
+        "7": "product_id_3"
+      }
+    },
+    "SN1": {
+      "name": "Item Detail (Shipment)",
+      "loop": true,
+      "elements": {
+        "1": "assigned_id",
+        "2": "quantity_shipped",
+        "3": "unit_of_measure",
+        "4": "quantity_shipped_to_date"
+      }
+    },
+    "MAN": {
+      "name": "Marks and Numbers",
+      "elements": {
+        "1": "marks_id_qualifier",
+        "2": "marks_id"
+      }
+    },
+    "PO4": {
+      "name": "Item Physical Details",
+      "elements": {
+        "1": "pack",
+        "2": "size",
+        "3": "unit_of_measure",
+        "4": "packaging_code"
+      }
+    }
+  }
+}

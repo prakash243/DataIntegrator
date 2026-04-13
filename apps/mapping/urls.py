@@ -8,6 +8,11 @@ urlpatterns = [
     # File upload conversion endpoints (multipart/form-data)
     path("file/json-to-csv/", views_file.FileUploadJsonToCsvView.as_view(), name="file-json-to-csv"),
     path("file/csv-to-json/", views_file.FileUploadCsvToJsonView.as_view(), name="file-csv-to-json"),
+    path("file/edi-to-json/", views_file.FileUploadEdiToJsonView.as_view(), name="file-edi-to-json"),
+    path("file/edi-to-csv/", views_file.FileUploadEdiToCsvView.as_view(), name="file-edi-to-csv"),
+
+    # EDI schema info
+    path("file/edi-schemas/", views_file.EdiSchemaListView.as_view(), name="edi-schemas"),
 
     # Conversion job management
     path("file/jobs/", views_file.ConversionJobListView.as_view(), name="job-list"),

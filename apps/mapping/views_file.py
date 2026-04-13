@@ -22,6 +22,8 @@ from rest_framework.views import APIView
 
 from .executor import execute_natural_rules
 from .maps.csv_to_json_file import csv_to_json_file_mapper
+from .maps.edi_to_csv_file import edi_to_csv_file_mapper
+from .maps.edi_to_json_file import edi_to_json_file_mapper
 from .maps.json_to_csv_file import json_to_csv_file_mapper
 from .models import ConversionJob
 
@@ -246,6 +248,216 @@ class FileUploadCsvToJsonView(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
 
+@method_decorator(csrf_exempt, name="dispatch")
+class FileUploadEdiToJsonView(APIView):
+    """
+    Upload an EDI file with optional user-defined transform code, convert to JSON.
+
+    POST /api/mapping/file/edi-to-json/
+    Content-Type: multipart/form-data
+
+    Fields:
+        file (required): EDI file to convert (.edi, .x12, .txt)
+        function_name (optional): User-given name for the transform
+        rules_code (optional): Python code with a def apply_rules(row): function
+        transaction_set (optional): X12 transaction set code (e.g. 850, 810). Auto-detected if omitted.
+        include_envelope (optional): Whether to include envelope fields (default: true)
+    """
+
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        uploaded_file = request.FILES.get("file")
+        if not uploaded_file:
+            return Response({"error": "No file uploaded. Send an EDI file in the 'file' field."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        filename = uploaded_file.name
+        ext = os.path.splitext(filename)[1].lower()
+        if ext not in (".edi", ".x12", ".txt"):
+            return Response(
+                {"error": f"Invalid file type '{ext}'. Expected .edi, .x12, or .txt"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        function_name = request.data.get("function_name", "").strip()
+        rules_code = request.data.get("rules_code", "").strip()
+        transaction_set = request.data.get("transaction_set", "").strip()
+        include_envelope = request.data.get("include_envelope", "true").lower() in ("true", "1", "yes")
+
+        job = ConversionJob.objects.create(
+            direction="edi_to_json",
+            input_filename=filename,
+            function_name=function_name,
+            rules_code=rules_code,
+            edi_transaction_set=transaction_set,
+        )
+
+        content = uploaded_file.read().decode("utf-8")
+        uploaded_file.seek(0)
+        job.input_file.save(filename, uploaded_file, save=True)
+
+        try:
+            job.status = "processing"
+            job.save(update_fields=["status"])
+
+            result = edi_to_json_file_mapper(
+                content,
+                rules_code=rules_code,
+                transaction_set=transaction_set or None,
+                include_envelope=include_envelope,
+            )
+
+            base_name = os.path.splitext(filename)[0]
+            output_filename = f"{base_name}.json"
+
+            job.output_file.save(output_filename, ContentFile(result["output"].encode("utf-8")), save=False)
+            job.output_filename = output_filename
+            job.status = "completed"
+            job.rows_processed = result.get("rows_processed", 0)
+            job.columns_count = result.get("columns_count", 0)
+            job.logs = "\n".join(result["logs"])
+            job.completed_at = timezone.now()
+            job.save()
+
+            return Response({
+                "job_id": str(job.id),
+                "status": job.status,
+                "direction": job.direction,
+                "input_filename": job.input_filename,
+                "output_filename": job.output_filename,
+                "rows_processed": job.rows_processed,
+                "columns_count": job.columns_count,
+                "function_name": function_name,
+                "logs": result["logs"],
+                "output": result["output"],
+                "download_url": request.build_absolute_uri(f"/api/mapping/file/jobs/{job.id}/download/"),
+            }, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            job.status = "failed"
+            job.error_message = str(e)
+            job.completed_at = timezone.now()
+            job.save()
+
+            logger.exception(f"EDI to JSON conversion failed for job {job.id}")
+            return Response({
+                "job_id": str(job.id),
+                "error": "Conversion failed",
+                "details": str(e),
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class FileUploadEdiToCsvView(APIView):
+    """
+    Upload an EDI file with optional user-defined transform code, convert to CSV.
+
+    POST /api/mapping/file/edi-to-csv/
+    Content-Type: multipart/form-data
+
+    Fields:
+        file (required): EDI file to convert (.edi, .x12, .txt)
+        function_name (optional): User-given name for the transform
+        rules_code (optional): Python code with a def apply_rules(row): function
+        transaction_set (optional): X12 transaction set code (e.g. 850, 810). Auto-detected if omitted.
+        include_envelope (optional): Whether to include envelope fields (default: true)
+        delimiter (optional): CSV delimiter character (default: ,)
+        quote_data (optional): Whether to quote data fields (default: true)
+        quote_header (optional): Whether to quote header row (default: false)
+    """
+
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        uploaded_file = request.FILES.get("file")
+        if not uploaded_file:
+            return Response({"error": "No file uploaded. Send an EDI file in the 'file' field."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        filename = uploaded_file.name
+        ext = os.path.splitext(filename)[1].lower()
+        if ext not in (".edi", ".x12", ".txt"):
+            return Response(
+                {"error": f"Invalid file type '{ext}'. Expected .edi, .x12, or .txt"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        function_name = request.data.get("function_name", "").strip()
+        rules_code = request.data.get("rules_code", "").strip()
+        transaction_set = request.data.get("transaction_set", "").strip()
+        include_envelope = request.data.get("include_envelope", "true").lower() in ("true", "1", "yes")
+
+        delimiter = request.data.get("delimiter", ",") or ","
+        quote_data = request.data.get("quote_data", "true").lower() in ("true", "1", "yes")
+        quote_header = request.data.get("quote_header", "false").lower() in ("true", "1", "yes")
+
+        job = ConversionJob.objects.create(
+            direction="edi_to_csv",
+            input_filename=filename,
+            function_name=function_name,
+            rules_code=rules_code,
+            edi_transaction_set=transaction_set,
+        )
+
+        content = uploaded_file.read().decode("utf-8")
+        uploaded_file.seek(0)
+        job.input_file.save(filename, uploaded_file, save=True)
+
+        try:
+            job.status = "processing"
+            job.save(update_fields=["status"])
+
+            result = edi_to_csv_file_mapper(
+                content,
+                rules_code=rules_code,
+                transaction_set=transaction_set or None,
+                include_envelope=include_envelope,
+                delimiter=delimiter,
+                quote_data=quote_data,
+                quote_header=quote_header,
+            )
+
+            base_name = os.path.splitext(filename)[0]
+            output_filename = f"{base_name}.csv"
+
+            job.output_file.save(output_filename, ContentFile(result["output"].encode("utf-8")), save=False)
+            job.output_filename = output_filename
+            job.status = "completed"
+            job.rows_processed = result.get("rows_processed", 0)
+            job.columns_count = result.get("columns_count", 0)
+            job.logs = "\n".join(result["logs"])
+            job.completed_at = timezone.now()
+            job.save()
+
+            return Response({
+                "job_id": str(job.id),
+                "status": job.status,
+                "direction": job.direction,
+                "input_filename": job.input_filename,
+                "output_filename": job.output_filename,
+                "rows_processed": job.rows_processed,
+                "columns_count": job.columns_count,
+                "function_name": function_name,
+                "logs": result["logs"],
+                "output": result["output"],
+                "download_url": request.build_absolute_uri(f"/api/mapping/file/jobs/{job.id}/download/"),
+            }, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            job.status = "failed"
+            job.error_message = str(e)
+            job.completed_at = timezone.now()
+            job.save()
+
+            logger.exception(f"EDI to CSV conversion failed for job {job.id}")
+            return Response({
+                "job_id": str(job.id),
+                "error": "Conversion failed",
+                "details": str(e),
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+
 class ConversionJobListView(APIView):
     """
     List all conversion jobs.
@@ -382,6 +594,19 @@ def _data_preview(data: list[dict]) -> dict:
         "total_columns": len(columns),
         "preview_rows": len(rows_out),
     }
+
+
+class EdiSchemaListView(APIView):
+    """
+    List available EDI transaction set schemas.
+
+    GET /api/mapping/file/edi-schemas/
+    """
+
+    def get(self, request):
+        from .maps.edi_parser import list_schemas
+        schemas = list_schemas()
+        return Response({"schemas": schemas})
 
 
 @method_decorator(csrf_exempt, name="dispatch")

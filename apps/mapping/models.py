@@ -24,10 +24,14 @@ class ConversionJob(models.Model):
     DIRECTION_CHOICES = [
         ("json_to_csv", "JSON to CSV"),
         ("csv_to_json", "CSV to JSON"),
+        ("edi_to_json", "EDI to JSON"),
+        ("edi_to_csv", "EDI to CSV"),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     direction = models.CharField(max_length=20, choices=DIRECTION_CHOICES)
+    # EDI-specific options
+    edi_transaction_set = models.CharField(max_length=10, blank=True, default="")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
 
     # Files

@@ -101,6 +101,47 @@
     .file-info { margin-top: 8px; font-size: 13px; color: var(--success); font-weight: 500; }
     .upload-zone input[type="file"] { display: none; }
 
+    /* EDI Document Info card */
+    .doc-info-grid {
+      display: grid; grid-template-columns: 1fr; gap: 16px;
+    }
+    @media (min-width: 900px) {
+      .doc-info-grid { grid-template-columns: 1fr 2fr; }
+    }
+    .doc-info-section h4 {
+      font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;
+      color: var(--gray-400); margin-bottom: 10px; font-weight: 600;
+    }
+    .doc-party-list {
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .doc-party-card {
+      background: var(--gray-50); border: 1px solid var(--gray-200);
+      border-radius: var(--radius); padding: 10px 12px;
+    }
+    .doc-party-title {
+      display: inline-block; padding: 2px 8px; border-radius: 10px;
+      background: var(--primary-light); color: var(--primary);
+      font-size: 11px; font-weight: 700; margin-bottom: 8px;
+    }
+    .doc-fields {
+      display: flex; flex-wrap: wrap; gap: 6px 14px;
+    }
+    .doc-field {
+      display: inline-flex; align-items: baseline; gap: 5px;
+      font-size: 12px; line-height: 1.5;
+    }
+    .doc-field-key {
+      color: var(--gray-500); font-family: 'SF Mono', Monaco, monospace; font-size: 11px;
+    }
+    .doc-field-val {
+      color: var(--gray-800); font-weight: 500;
+    }
+    .doc-info-summary {
+      background: var(--gray-50); border: 1px solid var(--gray-200);
+      border-radius: var(--radius); padding: 10px 12px;
+    }
+
     /* Data preview table */
     .preview-wrapper { overflow-x: auto; max-height: 300px; }
     .preview-table {
@@ -499,11 +540,38 @@
       </div>
     </div>
 
+    <!-- EDI Document Info (only shown for EDI uploads) -->
+    <div class="card hidden" id="edi-doc-info-card">
+      <div class="card-header">
+        <span>EDI Document Info</span>
+        <span id="edi-doc-item-count" style="font-size:12px;color:var(--gray-400)"></span>
+      </div>
+      <div class="card-body">
+        <div class="doc-info-grid">
+          <div class="doc-info-section">
+            <h4>Header</h4>
+            <div class="doc-fields" id="edi-doc-header"></div>
+          </div>
+          <div class="doc-info-section">
+            <h4>Parties</h4>
+            <div class="doc-party-list" id="edi-doc-parties"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Step 2: Data Preview -->
     <div class="card hidden" id="preview-card">
       <div class="card-header">
         <span>2. Data Preview</span>
-        <span id="preview-info" style="font-size:12px;color:var(--gray-400)"></span>
+        <div style="display:flex;align-items:center;gap:16px">
+          <label class="hidden" id="edi-flat-toggle-label"
+                 style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--gray-600);font-weight:400;cursor:pointer">
+            <input type="checkbox" id="edi-flat-toggle" style="width:14px;height:14px;accent-color:var(--primary)">
+            Include header &amp; party columns
+          </label>
+          <span id="preview-info" style="font-size:12px;color:var(--gray-400)"></span>
+        </div>
       </div>
       <div class="card-body" style="padding:0">
         <div class="preview-wrapper">
@@ -904,6 +972,13 @@ function resetForm() {
   document.getElementById('reorder-chips').innerHTML = '';
   document.getElementById('reorder-input').value = '';
   document.getElementById('reorder-section').classList.add('hidden');
+  const docCard = document.getElementById('edi-doc-info-card');
+  if (docCard) docCard.classList.add('hidden');
+  const toggleLabel = document.getElementById('edi-flat-toggle-label');
+  if (toggleLabel) toggleLabel.classList.add('hidden');
+  const toggle = document.getElementById('edi-flat-toggle');
+  if (toggle) toggle.checked = false;
+  window.lastEdiParsed = null;
 }
 
 // ---- Real-time sync: Simple → Advanced ----
@@ -989,18 +1064,103 @@ async function handleFile(file) {
   // Try to parse and show preview (best-effort for large files)
   const text = await file.slice(0, 65536).text();
   let parsed;
+  const isEdi = currentDirection.startsWith('edi_');
   if (currentDirection === 'csv_to_json') {
     parsed = parseCSV(text, 5);
-  } else if (currentDirection.startsWith('edi_')) {
+  } else if (isEdi) {
     parsed = parseEDI(text, 5);
   } else {
     parsed = parseJSON(text, 5);
   }
-  if (parsed.headers.length > 0) {
-    showPreview(parsed.headers, parsed.rows);
-    detectedColumns = parsed.headers;
-    renderColumnRules(parsed.headers);
+
+  // Cache the parsed EDI data so the flat toggle can re-render without re-parsing
+  window.lastEdiParsed = isEdi ? parsed : null;
+
+  renderEdiPreview(parsed, isEdi);
+
+  // For EDI: render the Document Info card above the preview
+  renderDocumentInfo(parsed.documentInfo);
+}
+
+function renderEdiPreview(parsed, isEdi) {
+  const toggleLabel = document.getElementById('edi-flat-toggle-label');
+  const toggle = document.getElementById('edi-flat-toggle');
+
+  // Show/hide the toggle — only relevant for EDI uploads
+  if (toggleLabel) {
+    toggleLabel.classList.toggle('hidden', !isEdi || !parsed.documentInfo);
   }
+
+  const useFlat = isEdi && toggle && toggle.checked && parsed.documentInfo;
+  let headers = parsed.headers;
+  let rows = parsed.rows;
+
+  if (useFlat) {
+    // Build flat rows: prefix party fields by entity, prepend header + parties to each item row
+    const flatHeader = { ...parsed.documentInfo.header };
+    for (const [entity, fields] of Object.entries(parsed.documentInfo.parties || {})) {
+      for (const [k, v] of Object.entries(fields)) {
+        flatHeader[entity + '_' + k] = v;
+      }
+    }
+    // Reconstruct row dicts from current headers/rows, then merge with flatHeader
+    const itemDicts = parsed.rows.map(r => {
+      const d = {};
+      parsed.headers.forEach((h, i) => { d[h] = r[i]; });
+      return d;
+    });
+    const mergedDicts = itemDicts.map(item => ({ ...flatHeader, ...item }));
+    const seen = {};
+    mergedDicts.forEach(d => Object.keys(d).forEach(k => { if (!(k in seen)) seen[k] = true; }));
+    headers = Object.keys(seen);
+    rows = mergedDicts.map(d => headers.map(h => d[h] || ''));
+  }
+
+  if (headers.length > 0) {
+    showPreview(headers, rows);
+    detectedColumns = headers;
+    renderColumnRules(headers);
+  }
+}
+
+function renderDocumentInfo(info) {
+  const card = document.getElementById('edi-doc-info-card');
+  if (!card) return;
+  if (!info || (!Object.keys(info.header || {}).length && !Object.keys(info.parties || {}).length)) {
+    card.classList.add('hidden');
+    return;
+  }
+  card.classList.remove('hidden');
+
+  const headerEl = document.getElementById('edi-doc-header');
+  const partiesEl = document.getElementById('edi-doc-parties');
+  const itemCountEl = document.getElementById('edi-doc-item-count');
+
+  // Header fields
+  const hEntries = Object.entries(info.header || {}).filter(([, v]) => v);
+  headerEl.innerHTML = hEntries.length
+    ? hEntries.map(([k, v]) =>
+        `<div class="doc-field"><span class="doc-field-key">${escapeHtml(k)}</span><span class="doc-field-val">${escapeHtml(String(v))}</span></div>`
+      ).join('')
+    : '<div style="color:var(--gray-400);font-style:italic">No header fields</div>';
+
+  // Party cards
+  const parties = info.parties || {};
+  partiesEl.innerHTML = Object.keys(parties).length
+    ? Object.entries(parties).map(([entity, fields]) => {
+        const rows = Object.entries(fields)
+          .filter(([, v]) => v)
+          .map(([k, v]) =>
+            `<div class="doc-field"><span class="doc-field-key">${escapeHtml(k)}</span><span class="doc-field-val">${escapeHtml(String(v))}</span></div>`
+          ).join('');
+        return `<div class="doc-party-card">
+          <div class="doc-party-title">${escapeHtml(entity)}</div>
+          ${rows}
+        </div>`;
+      }).join('')
+    : '<div style="color:var(--gray-400);font-style:italic">No parties</div>';
+
+  itemCountEl.textContent = (info.itemCount || 0) + ' line item' + (info.itemCount === 1 ? '' : 's');
 }
 
 function formatSize(bytes) {
@@ -1068,15 +1228,14 @@ function parseCSVLine(line, delimiter) {
 }
 
 function parseEDI(text, maxRows) {
-  // Client-side EDI parser — mirrors the backend EDIDocument logic:
-  //   1. Tokenize segments
-  //   2. Group N1+N3+N4 into party loops (prefixed by entity identifier)
-  //   3. Group PO1/IT1+PID into line-item loops
-  //   4. Flatten: header + parties repeated, one row per line item
+  // Client-side EDI parser — mirrors the backend EDIDocument logic.
+  // Returns { headers, rows, documentInfo } where:
+  //   - headers/rows contain ONLY line-item data (no header/party repetition)
+  //   - documentInfo has { header: {...}, parties: {...} } for display above the table
   try {
     const raw = text.replace(/^\ufeff/, '').trim();
-    if (!raw.toUpperCase().startsWith('ISA')) return { headers: [], rows: [] };
-    if (raw.length < 106) return { headers: [], rows: [] };
+    if (!raw.toUpperCase().startsWith('ISA')) return { headers: [], rows: [], documentInfo: null };
+    if (raw.length < 106) return { headers: [], rows: [], documentInfo: null };
 
     const elemSep = raw[3];
     const segTerm = raw[105];
@@ -1089,12 +1248,11 @@ function parseEDI(text, maxRows) {
     const n1ChildIds = new Set(['N2', 'N3', 'N4', 'PER']);
     const itemChildIds = new Set(['PID', 'MEA', 'SAC']);
 
-    // Phase 1: Walk segments and group into header / party loops / item loops
     const headerData = {};
-    const partyLoops = [];   // [{entity, fields}, ...]
-    const itemLoops = [];    // [{fields}, ...]
+    const partyLoops = [];
+    const itemLoops = [];
 
-    let currentLoopType = '';  // 'party' | 'item' | ''
+    let currentLoopType = '';
     let currentParty = null;
     let currentItem = null;
 
@@ -1103,10 +1261,8 @@ function parseEDI(text, maxRows) {
       if (envelopeIds.has(segId)) continue;
 
       if (segId === 'N1') {
-        // Flush previous loop
         if (currentParty) partyLoops.push(currentParty);
         if (currentItem) { itemLoops.push(currentItem); currentItem = null; }
-        // Start new party loop — entity identifier is element 1
         const entity = (seg[1] || '').trim();
         currentParty = { entity, fields: {} };
         seg.slice(1).forEach((val, i) => {
@@ -1115,16 +1271,13 @@ function parseEDI(text, maxRows) {
         currentLoopType = 'party';
 
       } else if (n1ChildIds.has(segId) && currentLoopType === 'party' && currentParty) {
-        // Child of current N1 party loop
         seg.slice(1).forEach((val, i) => {
           if (val && val.trim()) currentParty.fields[segId + '_' + (i + 1)] = val.trim();
         });
 
       } else if (loopSegIds.has(segId)) {
-        // Flush previous loops
         if (currentParty) { partyLoops.push(currentParty); currentParty = null; }
         if (currentItem) itemLoops.push(currentItem);
-        // Start new line-item loop
         currentItem = { fields: {} };
         seg.slice(1).forEach((val, i) => {
           if (val && val.trim()) currentItem.fields[segId + '_' + (i + 1)] = val.trim();
@@ -1132,13 +1285,11 @@ function parseEDI(text, maxRows) {
         currentLoopType = 'item';
 
       } else if (itemChildIds.has(segId) && currentLoopType === 'item' && currentItem) {
-        // Child of current line-item loop (e.g. PID description)
         seg.slice(1).forEach((val, i) => {
           if (val && val.trim()) currentItem.fields[segId + '_' + (i + 1)] = val.trim();
         });
 
       } else {
-        // Header segment — flush any open loops first
         if (currentParty) { partyLoops.push(currentParty); currentParty = null; }
         if (currentItem) { itemLoops.push(currentItem); currentItem = null; }
         currentLoopType = '';
@@ -1147,37 +1298,50 @@ function parseEDI(text, maxRows) {
         });
       }
     }
-    // Flush last open loop
     if (currentParty) partyLoops.push(currentParty);
     if (currentItem) itemLoops.push(currentItem);
 
-    // Phase 2: Build party data with entity prefix (BY_element_2, ST_N4_1, etc.)
-    const partyData = {};
+    // Build nested party dict (no prefix flattening — each party is its own object)
+    const partyDict = {};
     for (const party of partyLoops) {
-      const prefix = party.entity || ('party_' + partyLoops.indexOf(party));
-      for (const [k, v] of Object.entries(party.fields)) {
-        partyData[prefix + '_' + k] = v;
-      }
+      const entity = party.entity || ('party_' + partyLoops.indexOf(party));
+      partyDict[entity] = party.fields;
     }
 
-    // Phase 3: Flatten — one row per line item (or single row if no items)
-    let data;
+    // Build rows from line items only (no header/party repetition)
+    let itemData;
     if (itemLoops.length > 0) {
-      data = itemLoops.map(item => ({ ...headerData, ...partyData, ...item.fields }));
+      itemData = itemLoops.map(item => item.fields);
     } else {
-      data = [{ ...headerData, ...partyData }];
+      // No line items — fall back to showing header + parties as one row
+      const fallback = { ...headerData };
+      for (const [entity, fields] of Object.entries(partyDict)) {
+        for (const [k, v] of Object.entries(fields)) {
+          fallback[entity + '_' + k] = v;
+        }
+      }
+      itemData = [fallback];
     }
 
     const seen = {};
-    data.forEach(obj => Object.keys(obj).forEach(k => { if (!(k in seen)) seen[k] = true; }));
+    itemData.forEach(obj => Object.keys(obj).forEach(k => { if (!(k in seen)) seen[k] = true; }));
     const headers = Object.keys(seen);
     const rows = [];
-    for (let i = 0; i < data.length && rows.length < maxRows; i++) {
-      rows.push(headers.map(h => data[i][h] || ''));
+    for (let i = 0; i < itemData.length && rows.length < maxRows; i++) {
+      rows.push(headers.map(h => itemData[i][h] || ''));
     }
-    return { headers, rows };
+
+    return {
+      headers,
+      rows,
+      documentInfo: {
+        header: headerData,
+        parties: partyDict,
+        itemCount: itemLoops.length,
+      },
+    };
   } catch (e) {
-    return { headers: [], rows: [] };
+    return { headers: [], rows: [], documentInfo: null };
   }
 }
 
@@ -1572,6 +1736,13 @@ function addTabSupport(el) {
 }
 addTabSupport($codeEditor);
 addTabSupport(document.getElementById('code-block-editor'));
+
+// ---- EDI flat-preview toggle ----
+document.getElementById('edi-flat-toggle').addEventListener('change', () => {
+  if (window.lastEdiParsed) {
+    renderEdiPreview(window.lastEdiParsed, true);
+  }
+});
 
 // ---- Convert ----
 $btnConvert.addEventListener('click', async () => {

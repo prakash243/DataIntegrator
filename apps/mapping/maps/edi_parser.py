@@ -272,66 +272,115 @@ class EDIDocument:
                 results.append(seg)
         return results
 
-    # --- Flattening to rows ---
+    # --- Document-level helpers ---
 
-    def to_rows(self, include_envelope: bool = True) -> list[dict]:
-        """
-        Flatten the document tree into a list of row dicts suitable
-        for JSON/CSV output.
-
-        Strategy:
-          1. Collect header fields from non-loop, non-party segments
-          2. Collect party fields with entity-type prefix (BY_name, ST_city, etc.)
-          3. For each line item loop → one output row with header + party + item data
-          4. If no line items exist → single row with header + party data
-        """
-        # 1. Header fields from non-loop segments
-        header = {}
+    def header_fields(self, include_envelope: bool = True) -> dict:
+        """Return all document-level header fields (non-loop, non-party segments)."""
+        result = {}
+        if include_envelope:
+            result.update(self._envelope_fields())
         for seg in self.header_segments:
-            header.update(seg.fields)
+            result.update(seg.fields)
+        return result
 
-        # 2. Party fields — prefix EVERY field with entity identifier
-        party_data = {}
+    def party_fields(self) -> dict:
+        """Return all party fields prefixed by entity identifier (BY_name, ST_city, ...)."""
+        data = {}
         for party_loop in self.parties:
             entity = party_loop.trigger.get("entity_identifier", "")
             if not entity:
-                entity = f"party_{len(party_data)}"
-
-            # Prefix all fields from the party loop (N1 + N3 + N4 + ...)
+                entity = f"party_{len(data)}"
             for field_name, value in party_loop.fields.items():
                 if field_name == "entity_identifier":
                     continue
-                party_data[f"{entity}_{field_name}"] = value
+                data[f"{entity}_{field_name}"] = value
+        return data
 
-        # 3. Line items
+    def party_dict(self) -> dict:
+        """Return parties as nested dict: {"BY": {...fields...}, "ST": {...}, ...}."""
+        result = {}
+        for party_loop in self.parties:
+            entity = party_loop.trigger.get("entity_identifier", "")
+            if not entity:
+                entity = f"party_{len(result)}"
+            fields = {k: v for k, v in party_loop.fields.items() if k != "entity_identifier"}
+            result[entity] = fields
+        return result
+
+    # --- Flattening to rows ---
+
+    def to_rows(
+        self,
+        include_envelope: bool = True,
+        mode: str = "items",
+    ) -> list[dict]:
+        """
+        Flatten the document tree into a list of row dicts.
+
+        Args:
+            include_envelope: Include envelope fields (sender, receiver, etc.)
+            mode: Output layout —
+                "items"  (default) — one row per line item with ONLY item-specific
+                                     fields. Header and party data are NOT repeated.
+                                     Use doc.header_fields() / doc.party_fields()
+                                     to access them separately.
+                "flat"             — legacy behavior: one row per line item with
+                                     header + party fields repeated on every row.
+
+        Returns:
+            List of row dicts. For documents without line items, returns a single
+            row containing header + party data.
+        """
         items = self.line_items
+
+        if mode == "flat":
+            # Legacy: repeat header + parties on every row
+            header = self.header_fields(include_envelope=include_envelope)
+            party_data = self.party_fields()
+
+            if not items:
+                row = {**header, **party_data}
+                return [row] if row else []
+
+            rows = []
+            for item in items:
+                row = {**header, **party_data, **item.fields}
+                rows.append(row)
+            return rows
+
+        # Default mode: "items" — rows contain ONLY item-specific fields
         if not items:
-            # No line items — single row with header + party data
-            row = {}
-            if include_envelope:
-                row.update(self._envelope_fields())
-            row.update(header)
-            row.update(party_data)
+            # No line items — return a single row with header + parties so the
+            # document isn't empty (edge case, e.g. envelope-only file)
+            header = self.header_fields(include_envelope=include_envelope)
+            party_data = self.party_fields()
+            row = {**header, **party_data}
             return [row] if row else []
 
-        # One row per line item, header + party fields repeated
-        rows = []
-        for item in items:
-            row = {}
-            if include_envelope:
-                row.update(self._envelope_fields())
-            row.update(header)
-            row.update(party_data)
+        return [dict(item.fields) for item in items]
 
-            # Add item fields
-            if isinstance(item, EDILoop):
-                row.update(item.fields)
-            else:
-                row.update(item.fields)
+    def to_document(self, include_envelope: bool = True) -> dict:
+        """
+        Produce a single nested document with header, parties, and items.
 
-            rows.append(row)
+        This is the recommended output shape for JSON: one object per EDI
+        transaction, matching the logical structure of the source document.
 
-        return rows
+        Returns:
+            {
+                "header": {...invoice/PO-level fields...},
+                "parties": {"BY": {...}, "ST": {...}, "SE": {...}},
+                "line_items": [
+                    {...item 1 fields...},
+                    {...item 2 fields...},
+                ]
+            }
+        """
+        return {
+            "header": self.header_fields(include_envelope=include_envelope),
+            "parties": self.party_dict(),
+            "line_items": [dict(item.fields) for item in self.line_items],
+        }
 
     def _envelope_fields(self) -> dict:
         """Extract key envelope fields into a flat dict."""
@@ -628,6 +677,7 @@ def parse_edi(
     content: str,
     transaction_set: str | None = None,
     include_envelope: bool = True,
+    mode: str = "items",
 ) -> dict:
     """
     Parse raw EDI X12 content into structured data.
@@ -638,11 +688,19 @@ def parse_edi(
     Args:
         content: Raw EDI string
         transaction_set: e.g. '850', '810'. If None, auto-detect from ST segment.
-        include_envelope: Whether to include envelope fields in output rows.
+        include_envelope: Whether to include envelope fields in output.
+        mode: Row layout —
+            "items" (default) — rows contain only line-item fields; header and
+                                party data are returned separately.
+            "flat"            — rows contain header + party + item fields
+                                (header/party repeated on every row).
 
     Returns:
         dict with keys:
-            - rows: list of flat row dicts
+            - rows: list of row dicts (layout depends on mode)
+            - header: document-level fields (always populated)
+            - parties: dict of {entity_code: {fields}} (always populated)
+            - document: nested {header, parties, line_items} structure
             - doc: the EDIDocument object (for advanced access)
             - envelope: parsed envelope metadata
             - transaction_set: detected/used transaction set code
@@ -651,10 +709,13 @@ def parse_edi(
             - logs: list of processing log messages
     """
     doc = EDIDocument.parse(content, transaction_set=transaction_set)
-    rows = doc.to_rows(include_envelope=include_envelope)
+    rows = doc.to_rows(include_envelope=include_envelope, mode=mode)
 
     return {
         "rows": rows,
+        "header": doc.header_fields(include_envelope=include_envelope),
+        "parties": doc.party_dict(),
+        "document": doc.to_document(include_envelope=include_envelope),
         "doc": doc,
         "envelope": doc.envelope,
         "transaction_set": doc.transaction_set,

@@ -132,11 +132,20 @@ def apply_rules(row):
 # ============================================================================
 # EDI (X12) EXAMPLES
 # ============================================================================
+#
+# The EDI parser produces rows with:
+#   - Header fields:      purchase_order_number, order_date, currency_code, ...
+#   - Envelope fields:    edi_sender, edi_receiver, edi_transaction_type
+#   - Party fields:       BY_name, BY_city, ST_name, ST_city, SE_name, SE_city
+#                         (entity-prefixed: BY=Buyer, ST=ShipTo, SE=Seller, RE=Remit)
+#   - Line item fields:   line_number, quantity_ordered, unit_price, product_id,
+#                         description (from attached PID segment)
+#
+# One row is produced per line item (PO1/IT1). Header and party fields repeat
+# on every row; only line item fields vary.
 
-# --- Example 6: EDI 850 to JSON — Clean up purchase order line items -------
+# --- Example 6: EDI 850 to JSON — Clean PO line items ----------------------
 # Use with: sample_850.edi (EDI to JSON direction)
-# The EDI parser produces rows with fields like: line_number, quantity_ordered,
-# unit_price, product_id, purchase_order_number, BY_name, etc.
 
 def apply_rules(row):
     # Calculate line total
@@ -152,43 +161,57 @@ def apply_rules(row):
     # Clean up product ID
     row['product_id'] = str(row.get('product_id', '')).strip()
 
-    # Keep only the most useful columns
+    # Keep only the most useful columns — note party fields are now correctly
+    # prefixed per entity (BY_, ST_, SE_)
     order = [
-        'purchase_order_number', 'order_date', 'BY_name',
-        'line_number', 'product_id', 'quantity_ordered',
-        'unit_of_measure', 'unit_price', 'line_total',
+        'purchase_order_number', 'order_date',
+        'BY_name', 'BY_city', 'BY_state',
+        'SE_name', 'SE_city', 'SE_state',
+        'line_number', 'product_id', 'description',
+        'quantity_ordered', 'unit_of_measure', 'unit_price', 'line_total',
     ]
     return {k: row.get(k, '') for k in order}
 
 
-# --- Example 7: EDI 850 to CSV — Filter high-value line items -------------
+# --- Example 7: EDI 850 to CSV — Use loops to bulk-format fields -----------
 # Use with: sample_850.edi (EDI to CSV direction)
+# Demonstrates for-loops to process many columns at once
 
 def apply_rules(row):
-    # Only keep line items with total value >= $1000
-    qty = float(row.get('quantity_ordered', 0))
-    price = float(row.get('unit_price', 0))
-    total = qty * price
-    if total < 1000:
-        return None
-
-    row['line_total'] = round(total, 2)
-    row['product_id'] = str(row.get('product_id', '')).strip()
-    row['quantity_ordered'] = int(qty)
-    row['unit_price'] = round(price, 2)
-
-    # Remove envelope and metadata fields
+    # Loop 1: Strip whitespace from all string values
     for key in list(row.keys()):
-        if key.startswith('edi_') or key.startswith('SE_') or key.startswith('ST_'):
+        if isinstance(row[key], str):
+            row[key] = row[key].strip()
+
+    # Loop 2: Format all YYYYMMDD date fields in the row
+    for key in list(row.keys()):
+        if 'date' in key.lower():
+            val = str(row[key])
+            if len(val) == 8 and val.isdigit():
+                row[key] = f"{val[:4]}-{val[4:6]}-{val[6:]}"
+
+    # Loop 3: Cast numeric fields
+    numeric_fields = ['quantity_ordered', 'unit_price', 'line_number']
+    for field in numeric_fields:
+        if field in row and row[field]:
+            try:
+                row[field] = float(row[field]) if '.' in str(row[field]) else int(row[field])
+            except (ValueError, TypeError):
+                pass
+
+    # Compute line total using casted values
+    row['line_total'] = round(float(row.get('quantity_ordered', 0)) * float(row.get('unit_price', 0)), 2)
+
+    # Loop 4: Remove envelope/metadata fields we don't need
+    for key in list(row.keys()):
+        if key.startswith('edi_'):
             row.pop(key, None)
 
     return row
 
 
-# --- Example 8: EDI 810 to JSON — Invoice summary -------------------------
+# --- Example 8: EDI 810 to JSON — Invoice summary with counter -------------
 # Use with: sample_810.edi (EDI to JSON direction)
-# The 810 parser produces rows with: line_number, quantity_invoiced,
-# unit_price, product_id, invoice_date, invoice_number, etc.
 
 counter = {'n': 0}
 
@@ -208,41 +231,57 @@ def apply_rules(row):
         'invoice_number': row.get('invoice_number', ''),
         'invoice_date': inv_date,
         'po_number': row.get('purchase_order_number', ''),
+        'ship_to': row.get('ST_name', ''),
+        'remit_to': row.get('RE_name', ''),
         'product_id': str(row.get('product_id', '')).strip(),
+        'description': row.get('description', ''),
         'quantity': int(qty),
         'unit_price': round(price, 2),
         'line_total': round(qty * price, 2),
-        'currency': 'USD',
+        'currency': row.get('currency_code', 'USD'),
     }
 
 
-# --- Example 9: EDI to JSON — Strip envelope fields, rename segments ------
+# --- Example 9: EDI — Collapse party fields into nested dicts --------------
 # Use with: any EDI file (EDI to JSON direction)
-# Generic transform that works with any transaction set
+# Uses loops to group BY_*, ST_*, SE_* fields back into nested party objects
 
 def apply_rules(row):
-    # Remove all envelope/metadata fields
+    # Collect party fields by entity prefix using a loop
+    parties = {}
+    keys_to_remove = []
+    party_prefixes = ('BY_', 'ST_', 'SE_', 'RE_', 'VN_', 'SF_')
+
     for key in list(row.keys()):
-        if key.startswith('edi_'):
-            row.pop(key, None)
+        for prefix in party_prefixes:
+            if key.startswith(prefix):
+                entity = prefix.rstrip('_')
+                field = key[len(prefix):]
+                parties.setdefault(entity, {})[field] = row[key]
+                keys_to_remove.append(key)
+                break
 
-    # Clean up: strip whitespace from all string values
-    for key in row:
-        if isinstance(row[key], str):
-            row[key] = row[key].strip()
+    # Remove flat party fields
+    for key in keys_to_remove:
+        row.pop(key, None)
 
-    # Remove empty values
-    row = {k: v for k, v in row.items() if v}
+    # Add nested parties dict
+    if parties:
+        row['parties'] = parties
 
     return row
 
 
-# --- Example 10: EDI 850 to CSV — Full order enrichment -------------------
+# --- Example 10: EDI 850 to CSV — Priority assignment with loop ------------
 # Use with: sample_850.edi (EDI to CSV direction)
-# Adds computed columns, reformats dates, assigns priority
+# Demonstrates loop-based computed columns and conditional logic
 
 counter = {'n': 0}
-priority_thresholds = {'high': 5000, 'medium': 1000}
+priority_thresholds = [
+    ('HIGH',   5000),
+    ('MEDIUM', 1000),
+    ('LOW',    0),
+]
 
 def apply_rules(row):
     counter['n'] += 1
@@ -251,32 +290,91 @@ def apply_rules(row):
     price = float(row.get('unit_price', 0))
     line_total = round(qty * price, 2)
 
-    # Assign priority based on line total
-    if line_total >= priority_thresholds['high']:
-        priority = 'HIGH'
-    elif line_total >= priority_thresholds['medium']:
-        priority = 'MEDIUM'
-    else:
-        priority = 'LOW'
+    # Loop over priority thresholds to assign priority
+    priority = 'LOW'
+    for label, threshold in priority_thresholds:
+        if line_total >= threshold:
+            priority = label
+            break
 
     # Format date
     date_raw = row.get('order_date', '')
     formatted_date = f"{date_raw[:4]}-{date_raw[4:6]}-{date_raw[6:]}" if len(date_raw) == 8 else date_raw
 
-    order = [
-        'row_num', 'po_number', 'order_date', 'buyer',
-        'line_number', 'product_id', 'quantity', 'unit_price',
-        'line_total', 'priority',
-    ]
-    return {k: v for k, v in {
+    return {
         'row_num': counter['n'],
         'po_number': row.get('purchase_order_number', ''),
         'order_date': formatted_date,
         'buyer': row.get('BY_name', ''),
+        'buyer_city': row.get('BY_city', ''),
+        'ship_to': row.get('ST_name', ''),
+        'ship_to_city': row.get('ST_city', ''),
+        'supplier': row.get('SE_name', ''),
         'line_number': row.get('line_number', ''),
         'product_id': str(row.get('product_id', '')).strip(),
+        'description': row.get('description', ''),
         'quantity': int(qty),
         'unit_price': round(price, 2),
         'line_total': line_total,
         'priority': priority,
-    }.items() if k in order}
+    }
+
+
+# --- Example 11: EDI — Nested loop to build lookup from parties ------------
+# Use with: any EDI file (EDI to JSON direction)
+# Demonstrates nested loops and list comprehensions
+
+supplier_directory = {
+    'TECH001': 'TechSupply Inc (US)',
+    'ACME001': 'Acme Corporation (US)',
+    'WH001':   'Warehouse West (US)',
+}
+
+def apply_rules(row):
+    # Build list of all parties present in this row using a loop
+    entities = []
+    for prefix in ['BY', 'ST', 'SE', 'RE']:
+        name_key = f"{prefix}_name"
+        id_key = f"{prefix}_id_code"
+        if row.get(name_key):
+            entities.append({
+                'role': prefix,
+                'name': row[name_key],
+                'id': row.get(id_key, ''),
+                'directory_match': supplier_directory.get(row.get(id_key, ''), 'Not listed'),
+            })
+
+    # Add aggregated view
+    row['all_parties'] = entities
+    row['party_count'] = len(entities)
+    row['party_names'] = ' | '.join(e['name'] for e in entities)
+
+    # Clean up — remove individual party fields (already captured above)
+    for key in list(row.keys()):
+        if any(key.startswith(p + '_') for p in ['BY', 'ST', 'SE', 'RE', 'VN']):
+            row.pop(key, None)
+
+    return row
+
+
+# --- Example 12: EDI 850 — While loop with accumulator --------------------
+# Use with: sample_850.edi
+# Demonstrates a while loop, though for-loop is usually preferred
+
+def apply_rules(row):
+    # Parse product ID components: e.g. "WIDGET-A-100" → parts
+    product_id = str(row.get('product_id', ''))
+    parts = product_id.split('-')
+
+    # Build description pieces using a while loop
+    pieces = []
+    i = 0
+    while i < len(parts):
+        pieces.append(f"Part{i+1}={parts[i]}")
+        i += 1
+
+    row['product_parts'] = ' / '.join(pieces)
+    row['product_prefix'] = parts[0] if parts else ''
+    row['product_part_count'] = len(parts)
+
+    return row

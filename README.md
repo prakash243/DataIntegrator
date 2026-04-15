@@ -291,7 +291,7 @@ User drags file onto upload zone
 - `parseJSON()` — best-effort JSON parse for large files (reads only first 64KB)
 - `parseCSV()` — parses CSV text by splitting lines and handling quoted fields
 - `parseCSVLine()` — handles CSV quoting (double-quote escaping, delimiters inside quotes)
-- `parseEDI()` — client-side EDI tokenizer that detects delimiters from ISA header, splits segments, and flattens header + loop items into preview rows
+- `parseEDI()` — client-side EDI tokenizer that mirrors the backend EDIDocument logic: detects delimiters from ISA header, groups N1+N3+N4 into party loops (prefixed by entity identifier like BY_, ST_, SE_), groups PO1/IT1+PID into line-item loops, and flattens into preview rows (one row per line item)
 - `showPreview()` — builds an HTML table showing column headers and up to 5 rows
 - `renderColumnRules()` — renders one code input per column with context-aware placeholders (e.g., `row['name'] = str(row['name']).upper()` for a column named `name`)
 
@@ -574,49 +574,98 @@ csv_to_json_file_mapper(content, rules_code, delimiter)
 
 `apps/mapping/maps/edi_to_json_file.py` — `edi_to_json_file_mapper()`
 
+The EDI parser uses an **lxml-inspired object model**: raw EDI content is first
+parsed into an `EDIDocument` tree (preserving the full segment hierarchy with
+`EDISegment` and `EDILoop` classes), then flattened to rows via `doc.to_rows()`.
+This two-phase approach is why the old bug — where three N1 party segments
+(BY, ST, SE) had their N3/N4 addresses overwriting each other — is now fixed.
+
 ```
 edi_to_json_file_mapper(content, rules_code, transaction_set, include_envelope)
   │
-  ├─▶ 6a. Parse EDI content
+  ├─▶ 6a. Parse EDI content into object tree
   │     └─▶ parse_edi(content, transaction_set, include_envelope)  [maps/edi_parser.py]
   │           │
-  │           ├─▶ detect_delimiters(content)
-  │           │     └─▶ Reads ISA fixed positions: element_sep (pos 3),
-  │           │         sub_element_sep (pos 104), segment_term (pos 105)
-  │           │
-  │           ├─▶ tokenize(content, delimiters)
-  │           │     └─▶ Splits by segment terminator (~), then by element separator (*)
-  │           │         Returns: list of segment arrays
-  │           │         e.g. [["ISA","00",...], ["GS","PO",...], ["ST","850","0001"], ...]
-  │           │
-  │           ├─▶ parse_envelope(segments)
-  │           │     ├─▶ Extracts ISA/IEA → interchange metadata (sender, receiver, version)
-  │           │     ├─▶ Extracts GS/GE  → functional group metadata
-  │           │     ├─▶ Extracts ST/SE  → transaction set type + control number
-  │           │     ├─▶ Extracts CTT    → total line item count
-  │           │     └─▶ Returns: (envelope_dict, business_segments_list)
-  │           │
-  │           ├─▶ load_schema(transaction_set)  [schemas/x12_850.json, etc.]
-  │           │     └─▶ Loads JSON schema that maps segment element positions
-  │           │         to human-readable field names
-  │           │         e.g. PO1 element 2 → "quantity_ordered"
-  │           │         Schemas available: 850 (Purchase Order), 810 (Invoice),
-  │           │                            856 (Advance Ship Notice)
-  │           │
-  │           └─▶ build_rows(envelope, business_segments, schema, include_envelope)
-  │                 ├─▶ Identifies loop segments (e.g. PO1 in 850, IT1 in 810)
-  │                 │   from schema "loop": true flag
-  │                 ├─▶ Collects header segment data (BEG, CUR, REF, DTM, etc.)
-  │                 ├─▶ Handles N1 party segments with entity prefix
-  │                 │   (BY_name, ST_name, SE_name, etc.)
-  │                 ├─▶ For each loop segment → creates one output row
-  │                 ├─▶ Repeats header fields on every loop row (flat output)
-  │                 └─▶ Optionally prepends envelope fields (edi_sender, edi_receiver, etc.)
+  │           └─▶ EDIDocument.parse(content, transaction_set)
+  │                 │
+  │                 ├─▶ _detect_delimiters(content)
+  │                 │     └─▶ Reads ISA fixed positions: element_sep (pos 3),
+  │                 │         sub_element_sep (pos 104), segment_term (pos 105)
+  │                 │
+  │                 ├─▶ _tokenize(content, delimiters)
+  │                 │     └─▶ Splits by segment terminator (~), then by element separator (*)
+  │                 │         Returns: list of segment arrays
+  │                 │         e.g. [["ISA","00",...], ["GS","PO",...], ["ST","850","0001"], ...]
+  │                 │
+  │                 ├─▶ _parse_envelope(raw_segments, envelope)
+  │                 │     ├─▶ Extracts ISA/IEA → interchange metadata (sender, receiver, version)
+  │                 │     ├─▶ Extracts GS/GE  → functional group metadata
+  │                 │     ├─▶ Extracts ST/SE  → transaction set type + control number
+  │                 │     ├─▶ Extracts CTT    → total line item count
+  │                 │     └─▶ Returns: business segments list (envelope populated in place)
+  │                 │
+  │                 ├─▶ load_schema(transaction_set)  [schemas/x12_850.json, etc.]
+  │                 │     └─▶ Loads JSON schema that maps segment element positions
+  │                 │         to human-readable field names
+  │                 │         e.g. PO1 element 2 → "quantity_ordered"
+  │                 │         Schemas available: 850 (Purchase Order), 810 (Invoice),
+  │                 │                            856 (Advance Ship Notice)
+  │                 │
+  │                 ├─▶ For each raw segment → _make_segment(raw_seg, schema)
+  │                 │     └─▶ Creates EDISegment(tag, elements, fields, name)
+  │                 │         - tag:      segment ID (BEG, N1, PO1, ...)
+  │                 │         - elements: raw element values as list
+  │                 │         - fields:   schema-mapped {field_name: value} dict
+  │                 │         - name:     human-readable name from schema
+  │                 │
+  │                 └─▶ _group_into_loops(doc)
+  │                       ├─▶ Walks segments and groups them into EDILoop objects:
+  │                       │
+  │                       │   N1 + N2 + N3 + N4 + PER  → one EDILoop (party loop)
+  │                       │     .trigger = N1 segment
+  │                       │     .children = [N3, N4, ...]
+  │                       │
+  │                       │   PO1 + PID + MEA + REF + DTM  → one EDILoop (line-item loop)
+  │                       │     .trigger = PO1 segment
+  │                       │     .children = [PID, ...]
+  │                       │
+  │                       │   Other segments (BEG, CUR, REF) → doc.header_segments
+  │                       │
+  │                       └─▶ Result: EDIDocument with
+  │                             .segments        (flat list, all segments in order)
+  │                             .header_segments (non-loop segments: BEG, CUR, REF, DTM, ...)
+  │                             .loops           (all EDILoop objects — parties + items)
+  │                             .parties         (convenience: EDILoops where tag == "N1")
+  │                             .line_items      (convenience: EDILoops for PO1/IT1/LIN/SN1)
+  │
+  │     After EDIDocument.parse() — the tree is navigable like lxml:
+  │       doc.find('BEG')              → first EDISegment with tag BEG
+  │       doc.findall('N1')            → list of EDILoop party objects
+  │       doc.parties                  → same as findall('N1')
+  │       doc.line_items               → list of line-item EDILoops
+  │       party.trigger.get('entity_identifier')  → 'BY', 'ST', 'SE'
+  │       party.get('city')            → city (from N4 child segment)
+  │       item.get('product_id')       → product ID (from PO1 trigger)
+  │       item.get('description')      → description (from PID child)
+  │
+  ├─▶ 6a.ii. Flatten tree to rows
+  │     └─▶ doc.to_rows(include_envelope=True)
+  │           ├─▶ Collect header fields from doc.header_segments
+  │           ├─▶ For each party loop → prefix ALL fields with entity_id
+  │           │     N1*BY + N3 + N4 → BY_name, BY_address_line_1, BY_city, BY_state
+  │           │     N1*ST + N3 + N4 → ST_name, ST_address_line_1, ST_city, ST_state
+  │           │     N1*SE + N3 + N4 → SE_name, SE_address_line_1, SE_city, SE_state
+  │           ├─▶ For each line item → one output row with header + parties + item
+  │           └─▶ Prepend envelope fields (edi_sender, edi_receiver, etc.)
   │
   │     Result: list of flat row dicts, one per line item
   │     e.g. [{"edi_sender": "SENDER", "purchase_order_number": "PO-2023-0451",
-  │             "BY_name": "Acme Corp", "line_number": "1", "quantity_ordered": "100",
-  │             "unit_price": "25.50", "product_id": "WIDGET-A-100"}, ...]
+  │             "BY_name": "Acme Corp", "BY_city": "Springfield",
+  │             "ST_name": "Acme Warehouse West", "ST_city": "Phoenix",
+  │             "SE_name": "TechSupply Inc", "SE_city": "Austin",
+  │             "line_number": "1", "quantity_ordered": "100",
+  │             "unit_price": "25.50", "product_id": "WIDGET-A-100",
+  │             "description": "High-performance industrial widget, Type A"}, ...]
   │
   ├─▶ 6b. Collect original column names
   │     └─▶ _collect_all_keys(data)
@@ -630,6 +679,29 @@ edi_to_json_file_mapper(content, rules_code, transaction_set, include_envelope)
   └─▶ 6e. Build JSON output
         └─▶ json.dumps(data, indent=2, ensure_ascii=False)
 ```
+
+---
+
+#### EDI Object Model Classes
+
+Inspired by lxml's `ElementTree` / `Element` pattern:
+
+| Class | Analogous to | Purpose |
+|-------|--------------|---------|
+| `EDISegment` | `lxml.Element` | A single parsed segment with `.tag`, `.elements`, `.fields`, `.name`, `.get(field)` |
+| `EDILoop` | Parent Element with children | A group of related segments — has `.trigger` (first segment), `.children` (following segments), merged `.fields`, `.find()`, `.findall()` |
+| `EDIDocument` | `lxml.ElementTree` | Full parsed document — has `.segments`, `.header_segments`, `.loops`, `.parties`, `.line_items`, `.find()`, `.findall()`, `.to_rows()` |
+
+**Navigation methods (like lxml):**
+
+| EDIDocument method | Returns | Example |
+|--------------------|---------|---------|
+| `doc.find(tag)` | First matching segment or loop | `doc.find('BEG')` |
+| `doc.findall(tag)` | All matching segments or loops | `doc.findall('N1')` |
+| `doc.iter()` | All business segments in order | `for seg in doc.iter():` |
+| `doc.parties` | All N1 party loops | `for p in doc.parties:` |
+| `doc.line_items` | All PO1/IT1/LIN/SN1 loops | `for item in doc.line_items:` |
+| `doc.to_rows()` | Flat list of row dicts | `rows = doc.to_rows()` |
 
 ---
 
@@ -859,7 +931,7 @@ The JSON Transform tab provides a separate workflow using natural-language rules
 | 2 | `templates/index.html` | `handleFile()` | Handle file upload (client-side) |
 | 2 | `templates/index.html` | `parseJSON()` | Parse JSON for preview (client-side) |
 | 2 | `templates/index.html` | `parseCSV()` | Parse CSV for preview (client-side) |
-| 2 | `templates/index.html` | `parseEDI()` | Parse EDI for preview — tokenizes segments, flattens to rows (client-side) |
+| 2 | `templates/index.html` | `parseEDI()` | Parse EDI for preview — mirrors backend EDIDocument logic: tokenizes segments, groups N1+N3+N4 party loops and PO1+PID item loops, flattens to rows with entity-prefixed party fields (client-side) |
 | 2 | `templates/index.html` | `showPreview()` | Render data preview table (client-side) |
 | 2 | `templates/index.html` | `renderColumnRules()` | Render per-column visual code inputs (client-side) |
 | 3 | `templates/index.html` | `generateRulesCode()` | Assemble visual inputs into `def apply_rules(row):` |
@@ -873,13 +945,21 @@ The JSON Transform tab provides a separate workflow using natural-language rules
 | 6b | `apps/mapping/maps/csv_to_json_file.py` | `csv_to_json_file_mapper()` | Parse CSV, apply rules, build JSON |
 | 6c | `apps/mapping/maps/edi_to_json_file.py` | `edi_to_json_file_mapper()` | Parse EDI, apply rules, build JSON |
 | 6d | `apps/mapping/maps/edi_to_csv_file.py` | `edi_to_csv_file_mapper()` | Parse EDI, apply rules, build CSV |
-| 6c/6d | `apps/mapping/maps/edi_parser.py` | `parse_edi()` | High-level EDI parser: detect delimiters, tokenize, parse envelope, map schema, build rows |
-| 6c/6d | `apps/mapping/maps/edi_parser.py` | `detect_delimiters()` | Read ISA fixed positions to find element/segment/sub-element separators |
-| 6c/6d | `apps/mapping/maps/edi_parser.py` | `tokenize()` | Split raw EDI by segment terminator, then by element separator |
-| 6c/6d | `apps/mapping/maps/edi_parser.py` | `parse_envelope()` | Extract ISA/GS/ST/SE/GE/IEA control segments from business data |
+| 6c/6d | `apps/mapping/maps/edi_parser.py` | `parse_edi()` | High-level API: parses content into EDIDocument, flattens to rows |
+| 6c/6d | `apps/mapping/maps/edi_parser.py` | `EDIDocument.parse()` | Class method — parses raw EDI into full object tree (like `lxml.etree.parse`) |
+| 6c/6d | `apps/mapping/maps/edi_parser.py` | `EDIDocument.find()` | Navigate — first matching segment or loop by tag (like `lxml.find`) |
+| 6c/6d | `apps/mapping/maps/edi_parser.py` | `EDIDocument.findall()` | Navigate — all matching segments or loops (like `lxml.findall`) |
+| 6c/6d | `apps/mapping/maps/edi_parser.py` | `EDIDocument.to_rows()` | Flatten tree into list of row dicts with prefixed party fields |
+| 6c/6d | `apps/mapping/maps/edi_parser.py` | `EDIDocument.parties` | Property — returns all N1 party loops |
+| 6c/6d | `apps/mapping/maps/edi_parser.py` | `EDIDocument.line_items` | Property — returns all PO1/IT1/LIN/SN1 line-item loops |
+| 6c/6d | `apps/mapping/maps/edi_parser.py` | `EDISegment` | Segment class (like lxml Element) — holds tag, elements, fields, name |
+| 6c/6d | `apps/mapping/maps/edi_parser.py` | `EDILoop` | Loop class — groups a trigger segment with its child segments |
+| 6c/6d | `apps/mapping/maps/edi_parser.py` | `_detect_delimiters()` | Read ISA fixed positions to find element/segment/sub-element separators |
+| 6c/6d | `apps/mapping/maps/edi_parser.py` | `_tokenize()` | Split raw EDI by segment terminator, then by element separator |
+| 6c/6d | `apps/mapping/maps/edi_parser.py` | `_parse_envelope()` | Extract ISA/GS/ST/SE/GE/IEA control segments from business data |
+| 6c/6d | `apps/mapping/maps/edi_parser.py` | `_make_segment()` | Build an EDISegment from raw element list + schema mapping |
+| 6c/6d | `apps/mapping/maps/edi_parser.py` | `_group_into_loops()` | Group related segments: N1+N3+N4 → party loop, PO1+PID → item loop |
 | 6c/6d | `apps/mapping/maps/edi_parser.py` | `load_schema()` | Load transaction-set JSON schema (850, 810, 856) from `schemas/` directory |
-| 6c/6d | `apps/mapping/maps/edi_parser.py` | `map_segment()` | Map a segment's element positions to named fields using schema |
-| 6c/6d | `apps/mapping/maps/edi_parser.py` | `build_rows()` | Flatten header + loop segments into output rows with envelope fields |
 | 7 | `apps/mapping/executor.py` | `validate_code()` | Security validation of user code |
 | 7 | `apps/mapping/executor.py` | `execute_rules()` | Sandbox execute apply_rules on each row |
 | 7 | `apps/mapping/executor.py` | `execute_natural_rules()` | Parse and apply natural-language rules (JSON Transform tab) |

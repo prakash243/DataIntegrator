@@ -1068,6 +1068,11 @@ function parseCSVLine(line, delimiter) {
 }
 
 function parseEDI(text, maxRows) {
+  // Client-side EDI parser — mirrors the backend EDIDocument logic:
+  //   1. Tokenize segments
+  //   2. Group N1+N3+N4 into party loops (prefixed by entity identifier)
+  //   3. Group PO1/IT1+PID into line-item loops
+  //   4. Flatten: header + parties repeated, one row per line item
   try {
     const raw = text.replace(/^\ufeff/, '').trim();
     if (!raw.toUpperCase().startsWith('ISA')) return { headers: [], rows: [] };
@@ -1079,37 +1084,88 @@ function parseEDI(text, maxRows) {
     const rawSegments = raw.split(segTerm).map(s => s.trim()).filter(Boolean);
     const segments = rawSegments.map(s => s.split(elemSep));
 
-    // Collect header fields and loop items
-    const headerData = {};
-    const loopRows = [];
-    // Known loop segment IDs for common transaction sets
-    const loopSegIds = new Set(['PO1', 'IT1', 'LIN', 'SN1']);
     const envelopeIds = new Set(['ISA', 'IEA', 'GS', 'GE', 'ST', 'SE', 'CTT']);
+    const loopSegIds = new Set(['PO1', 'IT1', 'LIN', 'SN1']);
+    const n1ChildIds = new Set(['N2', 'N3', 'N4', 'PER']);
+    const itemChildIds = new Set(['PID', 'MEA', 'SAC']);
+
+    // Phase 1: Walk segments and group into header / party loops / item loops
+    const headerData = {};
+    const partyLoops = [];   // [{entity, fields}, ...]
+    const itemLoops = [];    // [{fields}, ...]
+
+    let currentLoopType = '';  // 'party' | 'item' | ''
+    let currentParty = null;
+    let currentItem = null;
 
     for (const seg of segments) {
       const segId = (seg[0] || '').toUpperCase().trim();
       if (envelopeIds.has(segId)) continue;
 
-      if (loopSegIds.has(segId)) {
-        const row = {};
+      if (segId === 'N1') {
+        // Flush previous loop
+        if (currentParty) partyLoops.push(currentParty);
+        if (currentItem) { itemLoops.push(currentItem); currentItem = null; }
+        // Start new party loop — entity identifier is element 1
+        const entity = (seg[1] || '').trim();
+        currentParty = { entity, fields: {} };
         seg.slice(1).forEach((val, i) => {
-          if (val) row[segId + '_' + (i + 1)] = val;
+          if (val && val.trim()) currentParty.fields['element_' + (i + 1)] = val.trim();
         });
-        loopRows.push(row);
-      } else {
+        currentLoopType = 'party';
+
+      } else if (n1ChildIds.has(segId) && currentLoopType === 'party' && currentParty) {
+        // Child of current N1 party loop
         seg.slice(1).forEach((val, i) => {
-          if (val && val.trim()) {
-            headerData[segId + '_' + (i + 1)] = val.trim();
-          }
+          if (val && val.trim()) currentParty.fields[segId + '_' + (i + 1)] = val.trim();
+        });
+
+      } else if (loopSegIds.has(segId)) {
+        // Flush previous loops
+        if (currentParty) { partyLoops.push(currentParty); currentParty = null; }
+        if (currentItem) itemLoops.push(currentItem);
+        // Start new line-item loop
+        currentItem = { fields: {} };
+        seg.slice(1).forEach((val, i) => {
+          if (val && val.trim()) currentItem.fields[segId + '_' + (i + 1)] = val.trim();
+        });
+        currentLoopType = 'item';
+
+      } else if (itemChildIds.has(segId) && currentLoopType === 'item' && currentItem) {
+        // Child of current line-item loop (e.g. PID description)
+        seg.slice(1).forEach((val, i) => {
+          if (val && val.trim()) currentItem.fields[segId + '_' + (i + 1)] = val.trim();
+        });
+
+      } else {
+        // Header segment — flush any open loops first
+        if (currentParty) { partyLoops.push(currentParty); currentParty = null; }
+        if (currentItem) { itemLoops.push(currentItem); currentItem = null; }
+        currentLoopType = '';
+        seg.slice(1).forEach((val, i) => {
+          if (val && val.trim()) headerData[segId + '_' + (i + 1)] = val.trim();
         });
       }
     }
+    // Flush last open loop
+    if (currentParty) partyLoops.push(currentParty);
+    if (currentItem) itemLoops.push(currentItem);
 
+    // Phase 2: Build party data with entity prefix (BY_element_2, ST_N4_1, etc.)
+    const partyData = {};
+    for (const party of partyLoops) {
+      const prefix = party.entity || ('party_' + partyLoops.indexOf(party));
+      for (const [k, v] of Object.entries(party.fields)) {
+        partyData[prefix + '_' + k] = v;
+      }
+    }
+
+    // Phase 3: Flatten — one row per line item (or single row if no items)
     let data;
-    if (loopRows.length > 0) {
-      data = loopRows.map(lr => ({ ...headerData, ...lr }));
+    if (itemLoops.length > 0) {
+      data = itemLoops.map(item => ({ ...headerData, ...partyData, ...item.fields }));
     } else {
-      data = [headerData];
+      data = [{ ...headerData, ...partyData }];
     }
 
     const seen = {};

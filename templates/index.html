@@ -101,46 +101,68 @@
     .file-info { margin-top: 8px; font-size: 13px; color: var(--success); font-weight: 500; }
     .upload-zone input[type="file"] { display: none; }
 
-    /* EDI Document Info card */
-    .doc-info-grid {
-      display: grid; grid-template-columns: 1fr; gap: 16px;
+    /* EDI Structured Document Preview */
+    .edi-doc { padding: 20px; }
+    .edi-doc-title {
+      font-size: 18px; font-weight: 700; color: var(--gray-800); margin-bottom: 4px;
     }
-    @media (min-width: 900px) {
-      .doc-info-grid { grid-template-columns: 1fr 2fr; }
+    .edi-doc-subtitle { font-size: 13px; color: var(--gray-500); margin-bottom: 20px; }
+    .edi-section { margin-bottom: 20px; }
+    .edi-section-title {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px;
+      color: var(--gray-400); font-weight: 700; margin-bottom: 10px;
+      padding-bottom: 6px; border-bottom: 1px solid var(--gray-200);
     }
-    .doc-info-section h4 {
-      font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;
-      color: var(--gray-400); margin-bottom: 10px; font-weight: 600;
+    .edi-header-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 8px 20px;
     }
-    .doc-party-list {
-      display: flex; flex-direction: column; gap: 10px;
+    .edi-field { display: flex; flex-direction: column; gap: 1px; }
+    .edi-field-label { font-size: 11px; color: var(--gray-400); font-weight: 500; }
+    .edi-field-value { font-size: 14px; color: var(--gray-800); font-weight: 600; }
+    .edi-parties-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 12px;
     }
-    .doc-party-card {
+    .edi-party-card {
       background: var(--gray-50); border: 1px solid var(--gray-200);
-      border-radius: var(--radius); padding: 10px 12px;
+      border-radius: var(--radius); padding: 14px;
     }
-    .doc-party-title {
-      display: inline-block; padding: 2px 8px; border-radius: 10px;
-      background: var(--primary-light); color: var(--primary);
+    .edi-party-badge {
+      display: inline-block; padding: 2px 10px; border-radius: 12px;
       font-size: 11px; font-weight: 700; margin-bottom: 8px;
     }
-    .doc-fields {
-      display: flex; flex-wrap: wrap; gap: 6px 14px;
+    .edi-party-badge-by { background: #dbeafe; color: #1e40af; }
+    .edi-party-badge-st { background: #dcfce7; color: #166534; }
+    .edi-party-badge-se { background: #fef3c7; color: #92400e; }
+    .edi-party-badge-re { background: #fce7f3; color: #9d174d; }
+    .edi-party-badge-default { background: var(--gray-100); color: var(--gray-600); }
+    .edi-party-name { font-size: 15px; font-weight: 600; color: var(--gray-800); margin-bottom: 4px; }
+    .edi-party-addr { font-size: 13px; color: var(--gray-600); line-height: 1.5; }
+    .edi-party-id { font-size: 11px; color: var(--gray-400); margin-top: 6px; font-family: monospace; }
+    .edi-items-table {
+      width: 100%; border-collapse: collapse; font-size: 13px;
     }
-    .doc-field {
-      display: inline-flex; align-items: baseline; gap: 5px;
-      font-size: 12px; line-height: 1.5;
+    .edi-items-table th {
+      padding: 8px 12px; background: var(--gray-50); color: var(--gray-600);
+      font-weight: 600; text-align: left; border-bottom: 2px solid var(--gray-200);
+      font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px;
     }
-    .doc-field-key {
-      color: var(--gray-500); font-family: 'SF Mono', Monaco, monospace; font-size: 11px;
+    .edi-items-table td {
+      padding: 8px 12px; border-bottom: 1px solid var(--gray-100);
+      color: var(--gray-700);
     }
-    .doc-field-val {
-      color: var(--gray-800); font-weight: 500;
-    }
-    .doc-info-summary {
+    .edi-items-table tr:hover td { background: var(--primary-light); }
+    .edi-items-table .num { text-align: right; font-family: monospace; }
+    .edi-items-table .desc { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .edi-summary-bar {
+      display: flex; gap: 24px; flex-wrap: wrap; padding: 14px 16px;
       background: var(--gray-50); border: 1px solid var(--gray-200);
-      border-radius: var(--radius); padding: 10px 12px;
+      border-radius: var(--radius);
     }
+    .edi-summary-item { text-align: center; }
+    .edi-summary-value { font-size: 18px; font-weight: 700; color: var(--primary); }
+    .edi-summary-label { font-size: 11px; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px; }
 
     /* Data preview table */
     .preview-wrapper { overflow-x: auto; max-height: 300px; }
@@ -540,21 +562,22 @@
       </div>
     </div>
 
-    <!-- EDI Document Info (only shown for EDI uploads) -->
+    <!-- EDI Structured Document Preview (only shown for EDI uploads) -->
     <div class="card hidden" id="edi-doc-info-card">
       <div class="card-header">
-        <span>EDI Document Info</span>
-        <span id="edi-doc-item-count" style="font-size:12px;color:var(--gray-400)"></span>
+        <span>2. Document Preview</span>
+        <div style="display:flex;align-items:center;gap:12px">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--gray-600);cursor:pointer">
+            <input type="checkbox" id="edi-table-toggle" style="width:14px;height:14px;accent-color:var(--primary)">
+            Show as table
+          </label>
+        </div>
       </div>
-      <div class="card-body">
-        <div class="doc-info-grid">
-          <div class="doc-info-section">
-            <h4>Header</h4>
-            <div class="doc-fields" id="edi-doc-header"></div>
-          </div>
-          <div class="doc-info-section">
-            <h4>Parties</h4>
-            <div class="doc-party-list" id="edi-doc-parties"></div>
+      <div class="card-body" style="padding:0">
+        <div id="edi-doc-structured" class="edi-doc"></div>
+        <div id="edi-doc-table-view" class="hidden" style="padding:0">
+          <div class="preview-wrapper">
+            <table class="preview-table" id="edi-flat-table"></table>
           </div>
         </div>
       </div>
@@ -564,14 +587,7 @@
     <div class="card hidden" id="preview-card">
       <div class="card-header">
         <span>2. Data Preview</span>
-        <div style="display:flex;align-items:center;gap:16px">
-          <label class="hidden" id="edi-flat-toggle-label"
-                 style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--gray-600);font-weight:400;cursor:pointer">
-            <input type="checkbox" id="edi-flat-toggle" style="width:14px;height:14px;accent-color:var(--primary)">
-            Include header &amp; party columns
-          </label>
-          <span id="preview-info" style="font-size:12px;color:var(--gray-400)"></span>
-        </div>
+        <span id="preview-info" style="font-size:12px;color:var(--gray-400)"></span>
       </div>
       <div class="card-body" style="padding:0">
         <div class="preview-wrapper">
@@ -974,10 +990,8 @@ function resetForm() {
   document.getElementById('reorder-section').classList.add('hidden');
   const docCard = document.getElementById('edi-doc-info-card');
   if (docCard) docCard.classList.add('hidden');
-  const toggleLabel = document.getElementById('edi-flat-toggle-label');
-  if (toggleLabel) toggleLabel.classList.add('hidden');
-  const toggle = document.getElementById('edi-flat-toggle');
-  if (toggle) toggle.checked = false;
+  const ediTableToggle = document.getElementById('edi-table-toggle');
+  if (ediTableToggle) ediTableToggle.checked = false;
   window.lastEdiParsed = null;
 }
 
@@ -1073,94 +1087,205 @@ async function handleFile(file) {
     parsed = parseJSON(text, 5);
   }
 
-  // Cache the parsed EDI data so the flat toggle can re-render without re-parsing
+  // Cache the parsed EDI data so toggles can re-render without re-parsing
   window.lastEdiParsed = isEdi ? parsed : null;
 
-  renderEdiPreview(parsed, isEdi);
-
-  // For EDI: render the Document Info card above the preview
-  renderDocumentInfo(parsed.documentInfo);
-}
-
-function renderEdiPreview(parsed, isEdi) {
-  const toggleLabel = document.getElementById('edi-flat-toggle-label');
-  const toggle = document.getElementById('edi-flat-toggle');
-
-  // Show/hide the toggle — only relevant for EDI uploads
-  if (toggleLabel) {
-    toggleLabel.classList.toggle('hidden', !isEdi || !parsed.documentInfo);
-  }
-
-  const useFlat = isEdi && toggle && toggle.checked && parsed.documentInfo;
-  let headers = parsed.headers;
-  let rows = parsed.rows;
-
-  if (useFlat) {
-    // Build flat rows: prefix party fields by entity, prepend header + parties to each item row
-    const flatHeader = { ...parsed.documentInfo.header };
-    for (const [entity, fields] of Object.entries(parsed.documentInfo.parties || {})) {
-      for (const [k, v] of Object.entries(fields)) {
-        flatHeader[entity + '_' + k] = v;
-      }
+  if (isEdi && parsed.documentInfo) {
+    // EDI: show structured document preview, hide generic table preview
+    $previewCard.classList.add('hidden');
+    renderEdiStructuredView(parsed);
+  } else {
+    // JSON/CSV: show normal table preview
+    document.getElementById('edi-doc-info-card').classList.add('hidden');
+    if (parsed.headers.length > 0) {
+      showPreview(parsed.headers, parsed.rows);
+      detectedColumns = parsed.headers;
+      renderColumnRules(parsed.headers);
     }
-    // Reconstruct row dicts from current headers/rows, then merge with flatHeader
-    const itemDicts = parsed.rows.map(r => {
-      const d = {};
-      parsed.headers.forEach((h, i) => { d[h] = r[i]; });
-      return d;
-    });
-    const mergedDicts = itemDicts.map(item => ({ ...flatHeader, ...item }));
-    const seen = {};
-    mergedDicts.forEach(d => Object.keys(d).forEach(k => { if (!(k in seen)) seen[k] = true; }));
-    headers = Object.keys(seen);
-    rows = mergedDicts.map(d => headers.map(h => d[h] || ''));
-  }
-
-  if (headers.length > 0) {
-    showPreview(headers, rows);
-    detectedColumns = headers;
-    renderColumnRules(headers);
   }
 }
 
-function renderDocumentInfo(info) {
+// ---- EDI human-readable labels ----
+const EDI_ENTITY_LABELS = {
+  'BY': 'Buyer', 'ST': 'Ship To', 'SE': 'Seller', 'RE': 'Remit To',
+  'BT': 'Bill To', 'VN': 'Vendor', 'SF': 'Ship From', 'OB': 'Ordered By',
+};
+const EDI_ENTITY_BADGE = {
+  'BY': 'edi-party-badge-by', 'ST': 'edi-party-badge-st',
+  'SE': 'edi-party-badge-se', 'RE': 'edi-party-badge-re',
+};
+// Map generic field keys → human labels for the structured preview
+const EDI_FIELD_LABELS = {
+  'BEG_1': 'Purpose', 'BEG_2': 'Order Type', 'BEG_3': 'PO Number', 'BEG_5': 'Order Date',
+  'BIG_1': 'Invoice Date', 'BIG_2': 'Invoice Number', 'BIG_3': 'PO Date', 'BIG_4': 'PO Number',
+  'CUR_1': 'Entity', 'CUR_2': 'Currency',
+  'REF_1': 'Ref Qualifier', 'REF_2': 'Reference ID',
+  'PER_1': 'Contact Type', 'PER_2': 'Contact Name', 'PER_3': 'Comm Type 1', 'PER_4': 'Phone/Email 1', 'PER_5': 'Comm Type 2', 'PER_6': 'Phone/Email 2',
+  'DTM_1': 'Date Qualifier', 'DTM_2': 'Date',
+  'ITD_1': 'Terms Type', 'ITD_2': 'Terms Basis', 'ITD_3': 'Discount %', 'ITD_5': 'Discount Days', 'ITD_7': 'Net Days', 'ITD_9': 'Terms Description',
+  'element_1': 'Name/ID', 'element_2': 'Name', 'element_3': 'ID Qualifier', 'element_4': 'ID Code',
+  'N3_1': 'Address Line 1', 'N3_2': 'Address Line 2',
+  'N4_1': 'City', 'N4_2': 'State', 'N4_3': 'Postal Code', 'N4_4': 'Country',
+  'PER_2': 'Contact', 'PER_4': 'Phone', 'PER_6': 'Email',
+};
+// Item column labels
+const EDI_ITEM_LABELS = {
+  'PO1_1': '#', 'PO1_2': 'Qty', 'PO1_3': 'Unit', 'PO1_4': 'Price',
+  'PO1_5': 'Basis', 'PO1_6': 'ID Type', 'PO1_7': 'Product ID',
+  'PO1_8': 'ID Type 2', 'PO1_9': 'Product ID 2',
+  'IT1_1': '#', 'IT1_2': 'Qty', 'IT1_3': 'Unit', 'IT1_4': 'Price',
+  'IT1_5': 'Basis', 'IT1_6': 'ID Type', 'IT1_7': 'Product ID',
+  'IT1_8': 'ID Type 2', 'IT1_9': 'Product ID 2',
+  'PID_1': 'Desc Type', 'PID_5': 'Description',
+};
+// Date formatting helper
+function ediFormatDate(val) {
+  const s = String(val);
+  if (s.length === 8 && /^\d{8}$/.test(s)) return s.slice(0,4) + '-' + s.slice(4,6) + '-' + s.slice(6);
+  if (s.length === 6 && /^\d{6}$/.test(s)) return '20' + s.slice(0,2) + '-' + s.slice(2,4) + '-' + s.slice(4);
+  return s;
+}
+
+function renderEdiStructuredView(parsed) {
   const card = document.getElementById('edi-doc-info-card');
-  if (!card) return;
-  if (!info || (!Object.keys(info.header || {}).length && !Object.keys(info.parties || {}).length)) {
-    card.classList.add('hidden');
-    return;
-  }
+  const container = document.getElementById('edi-doc-structured');
+  const tableView = document.getElementById('edi-doc-table-view');
+
+  if (!parsed.documentInfo) { card.classList.add('hidden'); return; }
   card.classList.remove('hidden');
+  container.classList.remove('hidden');
+  tableView.classList.add('hidden');
 
-  const headerEl = document.getElementById('edi-doc-header');
-  const partiesEl = document.getElementById('edi-doc-parties');
-  const itemCountEl = document.getElementById('edi-doc-item-count');
-
-  // Header fields
-  const hEntries = Object.entries(info.header || {}).filter(([, v]) => v);
-  headerEl.innerHTML = hEntries.length
-    ? hEntries.map(([k, v]) =>
-        `<div class="doc-field"><span class="doc-field-key">${escapeHtml(k)}</span><span class="doc-field-val">${escapeHtml(String(v))}</span></div>`
-      ).join('')
-    : '<div style="color:var(--gray-400);font-style:italic">No header fields</div>';
-
-  // Party cards
+  const info = parsed.documentInfo;
+  const header = info.header || {};
   const parties = info.parties || {};
-  partiesEl.innerHTML = Object.keys(parties).length
-    ? Object.entries(parties).map(([entity, fields]) => {
-        const rows = Object.entries(fields)
-          .filter(([, v]) => v)
-          .map(([k, v]) =>
-            `<div class="doc-field"><span class="doc-field-key">${escapeHtml(k)}</span><span class="doc-field-val">${escapeHtml(String(v))}</span></div>`
-          ).join('');
-        return `<div class="doc-party-card">
-          <div class="doc-party-title">${escapeHtml(entity)}</div>
-          ${rows}
-        </div>`;
-      }).join('')
-    : '<div style="color:var(--gray-400);font-style:italic">No parties</div>';
+  const items = parsed.rows || [];
+  const itemHeaders = parsed.headers || [];
 
-  itemCountEl.textContent = (info.itemCount || 0) + ' line item' + (info.itemCount === 1 ? '' : 's');
+  // Detect document type from header keys
+  const isBEG = 'BEG_3' in header;
+  const isBIG = 'BIG_2' in header;
+  const docType = isBEG ? 'Purchase Order' : isBIG ? 'Invoice' : 'EDI Document';
+  const docId = header['BEG_3'] || header['BIG_2'] || '';
+  const docDate = header['BEG_5'] || header['BIG_1'] || '';
+
+  let html = '';
+
+  // --- Title ---
+  html += `<div class="edi-doc-title">${escapeHtml(docType)}${docId ? ': ' + escapeHtml(docId) : ''}</div>`;
+  html += `<div class="edi-doc-subtitle">${docDate ? 'Date: ' + ediFormatDate(docDate) : ''}${info.itemCount ? ' &middot; ' + info.itemCount + ' line item' + (info.itemCount === 1 ? '' : 's') : ''}</div>`;
+
+  // --- Header Section ---
+  const headerEntries = Object.entries(header).filter(([, v]) => v && String(v).trim());
+  if (headerEntries.length) {
+    html += '<div class="edi-section"><div class="edi-section-title">Document Header</div>';
+    html += '<div class="edi-header-grid">';
+    for (const [key, val] of headerEntries) {
+      const label = EDI_FIELD_LABELS[key] || key;
+      const isDate = /date/i.test(label) || key === 'DTM_2' || key === 'BEG_5' || key === 'BIG_1' || key === 'BIG_3';
+      const display = isDate ? ediFormatDate(val) : escapeHtml(String(val));
+      html += `<div class="edi-field"><div class="edi-field-label">${escapeHtml(label)}</div><div class="edi-field-value">${display}</div></div>`;
+    }
+    html += '</div></div>';
+  }
+
+  // --- Parties Section ---
+  const partyEntries = Object.entries(parties);
+  if (partyEntries.length) {
+    html += '<div class="edi-section"><div class="edi-section-title">Parties</div>';
+    html += '<div class="edi-parties-grid">';
+    for (const [entity, fields] of partyEntries) {
+      const roleName = EDI_ENTITY_LABELS[entity] || entity;
+      const badgeClass = EDI_ENTITY_BADGE[entity] || 'edi-party-badge-default';
+      const name = fields['element_2'] || fields['name'] || entity;
+      const addr1 = fields['N3_1'] || fields['address_line_1'] || '';
+      const addr2 = fields['N3_2'] || fields['address_line_2'] || '';
+      const city = fields['N4_1'] || fields['city'] || '';
+      const state = fields['N4_2'] || fields['state'] || '';
+      const zip = fields['N4_3'] || fields['postal_code'] || '';
+      const country = fields['N4_4'] || fields['country_code'] || '';
+      const idCode = fields['element_4'] || fields['id_code'] || '';
+
+      let addrLines = [];
+      if (addr1) addrLines.push(escapeHtml(addr1));
+      if (addr2) addrLines.push(escapeHtml(addr2));
+      const cityLine = [city, state, zip].filter(Boolean).join(', ');
+      if (cityLine) addrLines.push(escapeHtml(cityLine));
+      if (country && country !== 'US') addrLines.push(escapeHtml(country));
+
+      html += `<div class="edi-party-card">`;
+      html += `<div class="edi-party-badge ${badgeClass}">${escapeHtml(roleName)} (${escapeHtml(entity)})</div>`;
+      html += `<div class="edi-party-name">${escapeHtml(name)}</div>`;
+      if (addrLines.length) html += `<div class="edi-party-addr">${addrLines.join('<br>')}</div>`;
+      if (idCode) html += `<div class="edi-party-id">ID: ${escapeHtml(idCode)}</div>`;
+      html += `</div>`;
+    }
+    html += '</div></div>';
+  }
+
+  // --- Line Items Section ---
+  if (items.length && itemHeaders.length) {
+    // Pick the most useful columns to display (skip empty/qualifier columns)
+    const skipPatterns = ['_5', '_6', '_8']; // basis, qualifier columns — usually codes
+    const showHeaders = itemHeaders.filter(h => {
+      // Always show description, product ID, qty, price, line number columns
+      if (/PID_5|PO1_1|PO1_2|PO1_3|PO1_4|PO1_7|IT1_1|IT1_2|IT1_3|IT1_4|IT1_7/.test(h)) return true;
+      // Skip code/qualifier columns
+      if (skipPatterns.some(p => h.endsWith(p))) return false;
+      // Skip PID_1 (always "F")
+      if (h === 'PID_1') return false;
+      return true;
+    });
+
+    html += '<div class="edi-section"><div class="edi-section-title">Line Items</div>';
+    html += '<div style="overflow-x:auto"><table class="edi-items-table"><thead><tr>';
+    for (const h of showHeaders) {
+      const label = EDI_ITEM_LABELS[h] || h;
+      html += `<th>${escapeHtml(label)}</th>`;
+    }
+    html += '</tr></thead><tbody>';
+    for (const row of items) {
+      const rowArr = itemHeaders.map((h, i) => row[i] || '');
+      html += '<tr>';
+      for (const h of showHeaders) {
+        const idx = itemHeaders.indexOf(h);
+        const val = idx >= 0 ? (rowArr[idx] || '') : '';
+        const isNum = /^PO1_(1|2|4)$|^IT1_(1|2|4)$/.test(h);
+        const isDesc = h === 'PID_5';
+        const cls = isNum ? ' class="num"' : (isDesc ? ' class="desc"' : '');
+        let display = escapeHtml(val);
+        if (/PO1_4|IT1_4/.test(h) && val) display = '$' + parseFloat(val).toFixed(2);
+        html += `<td${cls}>${display}</td>`;
+      }
+      html += '</tr>';
+    }
+    html += '</tbody></table></div></div>';
+
+    // --- Summary ---
+    let totalQty = 0, totalValue = 0;
+    for (const row of items) {
+      const rowArr = itemHeaders.map((h, i) => row[i] || '');
+      const qtyIdx = itemHeaders.findIndex(h => /PO1_2|IT1_2/.test(h));
+      const priceIdx = itemHeaders.findIndex(h => /PO1_4|IT1_4/.test(h));
+      const qty = qtyIdx >= 0 ? parseFloat(rowArr[qtyIdx]) || 0 : 0;
+      const price = priceIdx >= 0 ? parseFloat(rowArr[priceIdx]) || 0 : 0;
+      totalQty += qty;
+      totalValue += qty * price;
+    }
+
+    html += '<div class="edi-section"><div class="edi-summary-bar">';
+    html += `<div class="edi-summary-item"><div class="edi-summary-value">${items.length}</div><div class="edi-summary-label">Line Items</div></div>`;
+    html += `<div class="edi-summary-item"><div class="edi-summary-value">${totalQty.toLocaleString()}</div><div class="edi-summary-label">Total Quantity</div></div>`;
+    html += `<div class="edi-summary-item"><div class="edi-summary-value">$${totalValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div><div class="edi-summary-label">Total Value</div></div>`;
+    html += `<div class="edi-summary-item"><div class="edi-summary-value">${partyEntries.length}</div><div class="edi-summary-label">Parties</div></div>`;
+    html += '</div></div>';
+  }
+
+  container.innerHTML = html;
+
+  // Set detected columns from item fields so the rules editor works
+  detectedColumns = itemHeaders;
+  renderColumnRules(itemHeaders);
 }
 
 function formatSize(bytes) {
@@ -1737,10 +1862,48 @@ function addTabSupport(el) {
 addTabSupport($codeEditor);
 addTabSupport(document.getElementById('code-block-editor'));
 
-// ---- EDI flat-preview toggle ----
-document.getElementById('edi-flat-toggle').addEventListener('change', () => {
-  if (window.lastEdiParsed) {
-    renderEdiPreview(window.lastEdiParsed, true);
+// ---- EDI "Show as table" toggle ----
+document.getElementById('edi-table-toggle').addEventListener('change', function() {
+  const structured = document.getElementById('edi-doc-structured');
+  const tableView = document.getElementById('edi-doc-table-view');
+  if (this.checked && window.lastEdiParsed) {
+    // Build flat table from cached parsed data
+    structured.classList.add('hidden');
+    tableView.classList.remove('hidden');
+    const parsed = window.lastEdiParsed;
+    const info = parsed.documentInfo;
+    // Merge header + parties + items into flat rows
+    const flatHeader = { ...info.header };
+    for (const [entity, fields] of Object.entries(info.parties || {})) {
+      for (const [k, v] of Object.entries(fields)) {
+        flatHeader[entity + '_' + k] = v;
+      }
+    }
+    const itemDicts = parsed.rows.map(r => {
+      const d = {};
+      parsed.headers.forEach((h, i) => { d[h] = r[i]; });
+      return d;
+    });
+    const mergedDicts = itemDicts.map(item => ({ ...flatHeader, ...item }));
+    const seen = {};
+    mergedDicts.forEach(d => Object.keys(d).forEach(k => { if (!(k in seen)) seen[k] = true; }));
+    const headers = Object.keys(seen);
+    const rows = mergedDicts.map(d => headers.map(h => d[h] || ''));
+    // Render into the flat table
+    const $table = document.getElementById('edi-flat-table');
+    let h = '<thead><tr>';
+    headers.forEach(col => { h += '<th>' + escapeHtml(col) + '</th>'; });
+    h += '</tr></thead><tbody>';
+    rows.forEach(row => {
+      h += '<tr>';
+      row.forEach(val => { h += '<td>' + escapeHtml(String(val)) + '</td>'; });
+      h += '</tr>';
+    });
+    h += '</tbody>';
+    $table.innerHTML = h;
+  } else {
+    structured.classList.remove('hidden');
+    tableView.classList.add('hidden');
   }
 });
 

@@ -164,6 +164,99 @@
     .edi-summary-value { font-size: 18px; font-weight: 700; color: var(--primary); }
     .edi-summary-label { font-size: 11px; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px; }
 
+    /* Field Configurator (no-code) */
+    .fc-section-title {
+      font-weight: 600; font-size: 13px; color: var(--gray-600); margin-bottom: 10px;
+    }
+    .fc-section-hint {
+      font-weight: 400; color: var(--gray-400);
+    }
+    .fc-field-list { display: flex; flex-direction: column; gap: 6px; }
+    .fc-field-row {
+      display: flex; align-items: center; gap: 10px; padding: 8px 14px;
+      background: var(--gray-50); border: 1px solid var(--gray-200);
+      border-radius: var(--radius); transition: opacity 0.15s;
+    }
+    .fc-field-row.excluded { opacity: 0.45; }
+    .fc-field-row input[type="checkbox"] {
+      width: 16px; height: 16px; accent-color: var(--primary); flex-shrink: 0;
+    }
+    .fc-field-name {
+      min-width: 120px; font-weight: 600; font-size: 13px; color: var(--gray-700);
+      font-family: 'SF Mono', Monaco, monospace; word-break: break-all; flex-shrink: 0;
+    }
+    .fc-arrow { color: var(--gray-400); font-size: 14px; flex-shrink: 0; }
+    .fc-rename-input {
+      width: 130px; padding: 5px 8px; border: 1px solid var(--gray-200);
+      border-radius: 4px; font-size: 12px; font-family: 'SF Mono', Monaco, monospace;
+      color: var(--gray-700); background: white;
+    }
+    .fc-rename-input:focus { outline: none; border-color: var(--primary); }
+    .fc-rename-input::placeholder { color: var(--gray-400); font-style: italic; }
+    .fc-sample {
+      font-size: 11px; color: var(--gray-400); flex: 1; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap; font-family: monospace;
+    }
+    .fc-computed-row {
+      display: flex; align-items: center; gap: 10px; padding: 8px 14px;
+      background: var(--primary-light); border: 1px solid var(--gray-200);
+      border-radius: var(--radius);
+    }
+    .fc-computed-name {
+      width: 130px; padding: 5px 8px; border: 1px solid var(--gray-200);
+      border-radius: 4px; font-size: 12px; font-family: 'SF Mono', Monaco, monospace;
+    }
+    .fc-computed-expr {
+      flex: 1; padding: 5px 8px; border: 1px solid var(--gray-200);
+      border-radius: 4px; font-size: 12px; font-family: 'SF Mono', Monaco, monospace;
+    }
+    .fc-computed-name:focus, .fc-computed-expr:focus { outline: none; border-color: var(--primary); }
+    .fc-btn-add {
+      margin-top: 8px; padding: 6px 14px; background: white; color: var(--primary);
+      border: 1px dashed var(--primary); border-radius: 6px; cursor: pointer;
+      font-size: 12px; font-weight: 500;
+    }
+    .fc-btn-add:hover { background: var(--primary-light); }
+    .fc-btn-remove {
+      padding: 2px 6px; background: none; border: 1px solid var(--gray-300);
+      border-radius: 4px; cursor: pointer; font-size: 14px; color: var(--gray-400); line-height: 1;
+    }
+    .fc-btn-remove:hover { color: var(--error); border-color: var(--error); }
+    .fc-actions {
+      display: flex; gap: 8px; margin-top: 12px; align-items: center;
+    }
+    .fc-select-btns {
+      display: flex; gap: 6px; font-size: 12px;
+    }
+    .fc-select-btns button {
+      padding: 3px 8px; background: white; border: 1px solid var(--gray-200);
+      border-radius: 4px; cursor: pointer; font-size: 11px; color: var(--gray-500);
+    }
+    .fc-select-btns button:hover { color: var(--primary); border-color: var(--primary); }
+    .fc-tab-btn {
+      padding: 6px 16px; border: none; background: transparent;
+      border-radius: 5px; cursor: pointer; font-size: 13px;
+      font-weight: 500; color: var(--gray-500); transition: all 0.15s;
+    }
+    .fc-tab-btn:hover { color: var(--gray-700); }
+    .fc-tab-btn.active { background: white; color: var(--primary); box-shadow: var(--shadow); }
+    .fc-tab-content.hidden { display: none; }
+    .fc-party-group { margin-bottom: 14px; }
+    .fc-party-group-title {
+      display: inline-block; padding: 3px 10px; border-radius: 12px;
+      font-size: 12px; font-weight: 700; margin-bottom: 8px;
+    }
+    .fc-party-group-title-by { background: #dbeafe; color: #1e40af; }
+    .fc-party-group-title-st { background: #dcfce7; color: #166534; }
+    .fc-party-group-title-se { background: #fef3c7; color: #92400e; }
+    .fc-party-group-title-re { background: #fce7f3; color: #9d174d; }
+    .fc-party-group-title-default { background: var(--gray-100); color: var(--gray-600); }
+    .fc-party-check-row {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+    }
+    .fc-party-check-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--primary); }
+    .fc-party-check-row label { font-size: 13px; font-weight: 600; color: var(--gray-700); }
+
     /* Data preview table */
     .preview-wrapper { overflow-x: auto; max-height: 300px; }
     .preview-table {
@@ -611,6 +704,52 @@
 
         <!-- Simple mode: per-column rules -->
         <div id="simple-mode">
+
+          <!-- Field Configurator (no-code) — 3 tabs: Header, Parties, Line Items -->
+          <div id="field-config-section" class="hidden" style="margin-bottom:16px">
+            <div class="fc-section-title">Field Configurator <span class="fc-section-hint">(no code needed — uncheck to remove, type to rename)</span></div>
+
+            <!-- FC tab bar -->
+            <div class="mode-toggle" style="margin-bottom:12px">
+              <button class="fc-tab-btn active" data-fctab="items" type="button">Line Items</button>
+              <button class="fc-tab-btn" data-fctab="header" type="button">Header</button>
+              <button class="fc-tab-btn" data-fctab="parties" type="button">Parties</button>
+            </div>
+
+            <!-- Items tab -->
+            <div id="fc-tab-items" class="fc-tab-content">
+              <div class="fc-field-list" id="fc-items-list"></div>
+              <div class="fc-actions">
+                <div class="fc-select-btns">
+                  <button type="button" onclick="fcSelectAll('fc-items-list')">Select All</button>
+                  <button type="button" onclick="fcSelectNone('fc-items-list')">Select None</button>
+                </div>
+              </div>
+              <div style="margin-top:14px">
+                <div class="fc-section-title">Computed Fields <span class="fc-section-hint">(add new fields using simple expressions)</span></div>
+                <div id="fc-computed-list" style="display:flex;flex-direction:column;gap:6px"></div>
+                <button type="button" id="fc-add-computed" class="fc-btn-add">+ Add Computed Field</button>
+              </div>
+            </div>
+
+            <!-- Header tab -->
+            <div id="fc-tab-header" class="fc-tab-content hidden">
+              <div class="fc-field-list" id="fc-header-list"></div>
+              <div class="fc-actions">
+                <div class="fc-select-btns">
+                  <button type="button" onclick="fcSelectAll('fc-header-list')">Select All</button>
+                  <button type="button" onclick="fcSelectNone('fc-header-list')">Select None</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Parties tab -->
+            <div id="fc-tab-parties" class="fc-tab-content hidden">
+              <div id="fc-parties-container"></div>
+            </div>
+
+          </div>
+
           <!-- Variables section (above apply_rules) -->
           <div id="variables-section" class="hidden" style="margin-bottom:16px">
             <div style="font-weight:600;font-size:13px;color:var(--gray-600);margin-bottom:10px">Variables <span style="font-weight:400;color:var(--gray-400)">(defined above apply_rules, shared across all rows)</span></div>
@@ -993,6 +1132,11 @@ function resetForm() {
   const ediTableToggle = document.getElementById('edi-table-toggle');
   if (ediTableToggle) ediTableToggle.checked = false;
   window.lastEdiParsed = null;
+  document.getElementById('field-config-section').classList.add('hidden');
+  document.getElementById('fc-items-list').innerHTML = '';
+  document.getElementById('fc-header-list').innerHTML = '';
+  document.getElementById('fc-parties-container').innerHTML = '';
+  document.getElementById('fc-computed-list').innerHTML = '';
 }
 
 // ---- Real-time sync: Simple → Advanced ----
@@ -1075,27 +1219,21 @@ async function handleFile(file) {
   $rulesCard.classList.remove('hidden');
   $codeEditor.value = EDITOR_HINT;
 
-  // Try to parse and show preview (best-effort for large files)
-  const text = await file.slice(0, 65536).text();
-  let parsed;
   const isEdi = currentDirection.startsWith('edi_');
-  if (currentDirection === 'csv_to_json') {
-    parsed = parseCSV(text, 5);
-  } else if (isEdi) {
-    parsed = parseEDI(text, 5);
-  } else {
-    parsed = parseJSON(text, 5);
-  }
 
-  // Cache the parsed EDI data so toggles can re-render without re-parsing
-  window.lastEdiParsed = isEdi ? parsed : null;
-
-  if (isEdi && parsed.documentInfo) {
-    // EDI: show structured document preview, hide generic table preview
-    $previewCard.classList.add('hidden');
-    renderEdiStructuredView(parsed);
+  if (isEdi) {
+    // EDI: call backend for schema-mapped field names
+    await handleEdiUploadPreview(file);
   } else {
-    // JSON/CSV: show normal table preview
+    // JSON/CSV: client-side parsing
+    const text = await file.slice(0, 65536).text();
+    let parsed;
+    if (currentDirection === 'csv_to_json') {
+      parsed = parseCSV(text, 5);
+    } else {
+      parsed = parseJSON(text, 5);
+    }
+    window.lastEdiParsed = null;
     document.getElementById('edi-doc-info-card').classList.add('hidden');
     if (parsed.headers.length > 0) {
       showPreview(parsed.headers, parsed.rows);
@@ -1104,6 +1242,127 @@ async function handleFile(file) {
     }
   }
 }
+
+async function handleEdiUploadPreview(file) {
+  // Upload to backend for schema-mapped preview
+  const fd = new FormData();
+  fd.append('file', file);
+  const ts = document.getElementById('opt-edi-transaction-set').value;
+  if (ts) fd.append('transaction_set', ts);
+
+  try {
+    const res = await fetch(API_BASE + '/file/edi-preview/', { method: 'POST', body: fd });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || 'EDI preview failed');
+
+    const header = body.header || {};
+    const parties = body.parties || {};
+    const items = body.line_items || [];
+
+    // Build headers and rows arrays from items for the preview table
+    const itemHeaders = items.length ? Object.keys(items[0]) : [];
+    const itemRows = items.slice(0, 5).map(item => itemHeaders.map(h => item[h] || ''));
+
+    // Build parsed object compatible with renderEdiStructuredView
+    const parsed = {
+      headers: itemHeaders,
+      rows: itemRows,
+      documentInfo: {
+        header: header,
+        parties: parties,
+        itemCount: items.length,
+        schemaName: body.schema_name,
+        transactionSet: body.transaction_set,
+      },
+    };
+
+    window.lastEdiParsed = parsed;
+
+    // Show structured document preview
+    $previewCard.classList.add('hidden');
+    renderEdiStructuredView(parsed);
+
+  } catch (err) {
+    // Fallback to client-side parsing with schema name mapping
+    console.warn('EDI backend preview failed, using client-side:', err.message);
+    const text = await file.slice(0, 65536).text();
+    const parsed = parseEDI(text, 5);
+
+    // Map generic positional names → schema-mapped names
+    parsed.headers = parsed.headers.map(h => EDI_SCHEMA_MAP[h] || h);
+    parsed.rows = parsed.rows; // rows stay the same (values don't change)
+    if (parsed.documentInfo) {
+      // Remap header keys
+      const hdr = parsed.documentInfo.header;
+      const newHdr = {};
+      for (const [k, v] of Object.entries(hdr)) {
+        newHdr[EDI_SCHEMA_MAP[k] || k] = v;
+      }
+      parsed.documentInfo.header = newHdr;
+    }
+
+    window.lastEdiParsed = parsed;
+    if (parsed.documentInfo) {
+      $previewCard.classList.add('hidden');
+      renderEdiStructuredView(parsed);
+    } else {
+      document.getElementById('edi-doc-info-card').classList.add('hidden');
+      if (parsed.headers.length > 0) {
+        showPreview(parsed.headers, parsed.rows);
+        detectedColumns = parsed.headers;
+        renderColumnRules(parsed.headers);
+      }
+    }
+  }
+}
+
+// ---- EDI generic-to-schema name mapping (for client-side fallback) ----
+const EDI_SCHEMA_MAP = {
+  // BEG (850 Purchase Order)
+  'BEG_1': 'transaction_set_purpose', 'BEG_2': 'purchase_order_type',
+  'BEG_3': 'purchase_order_number', 'BEG_4': 'release_number', 'BEG_5': 'order_date',
+  // BIG (810 Invoice)
+  'BIG_1': 'invoice_date', 'BIG_2': 'invoice_number',
+  'BIG_3': 'purchase_order_date', 'BIG_4': 'purchase_order_number',
+  'BIG_5': 'release_number', 'BIG_6': 'change_order_sequence',
+  // CUR
+  'CUR_1': 'entity_identifier', 'CUR_2': 'currency_code',
+  // REF
+  'REF_1': 'reference_id_qualifier', 'REF_2': 'reference_id', 'REF_3': 'description',
+  // PER
+  'PER_1': 'contact_function', 'PER_2': 'contact_name',
+  'PER_3': 'comm_qualifier_1', 'PER_4': 'comm_number_1',
+  'PER_5': 'comm_qualifier_2', 'PER_6': 'comm_number_2',
+  // DTM
+  'DTM_1': 'date_qualifier', 'DTM_2': 'date', 'DTM_3': 'time',
+  // N1 party
+  'element_1': 'entity_identifier', 'element_2': 'name',
+  'element_3': 'id_code_qualifier', 'element_4': 'id_code',
+  // N3
+  'N3_1': 'address_line_1', 'N3_2': 'address_line_2',
+  // N4
+  'N4_1': 'city', 'N4_2': 'state', 'N4_3': 'postal_code', 'N4_4': 'country_code',
+  // PO1 (850 line items)
+  'PO1_1': 'line_number', 'PO1_2': 'quantity_ordered', 'PO1_3': 'unit_of_measure',
+  'PO1_4': 'unit_price', 'PO1_5': 'basis_of_unit_price',
+  'PO1_6': 'product_id_qualifier', 'PO1_7': 'product_id',
+  'PO1_8': 'product_id_qualifier_2', 'PO1_9': 'product_id_2',
+  // IT1 (810 line items)
+  'IT1_1': 'line_number', 'IT1_2': 'quantity_invoiced', 'IT1_3': 'unit_of_measure',
+  'IT1_4': 'unit_price', 'IT1_5': 'basis_of_unit_price',
+  'IT1_6': 'product_id_qualifier', 'IT1_7': 'product_id',
+  'IT1_8': 'product_id_qualifier_2', 'IT1_9': 'product_id_2',
+  // PID
+  'PID_1': 'item_description_type', 'PID_2': 'product_characteristic_code',
+  'PID_3': 'agency_qualifier', 'PID_4': 'product_description_code', 'PID_5': 'description',
+  // ITD
+  'ITD_1': 'terms_type', 'ITD_2': 'terms_basis_date', 'ITD_3': 'terms_discount_percent',
+  'ITD_5': 'terms_discount_days', 'ITD_7': 'terms_net_days', 'ITD_9': 'terms_description',
+  // TDS
+  'TDS_1': 'total_invoice_amount',
+  // BSN (856)
+  'BSN_1': 'transaction_set_purpose', 'BSN_2': 'shipment_id', 'BSN_3': 'date', 'BSN_4': 'time',
+};
 
 // ---- EDI human-readable labels ----
 const EDI_ENTITY_LABELS = {
@@ -1522,6 +1781,212 @@ function renderColumnRules(headers) {
   document.getElementById('reorder-section').classList.remove('hidden');
   document.getElementById('reorder-input').value = '';
   renderReorderChips(headers);
+
+  // Render Field Configurator
+  renderFieldConfigurator(headers);
+}
+
+// ---- Field Configurator (no-code, 3-tab) ----
+
+// FC tab switching
+document.querySelectorAll('.fc-tab-btn[data-fctab]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.fc-tab-btn[data-fctab]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.fc-tab-content').forEach(t => t.classList.add('hidden'));
+    document.getElementById('fc-tab-' + btn.dataset.fctab).classList.remove('hidden');
+  });
+});
+
+const EDI_PARTY_LABELS = {
+  'BY': 'Buyer', 'ST': 'Ship To', 'SE': 'Seller', 'RE': 'Remit To',
+  'BT': 'Bill To', 'VN': 'Vendor', 'SF': 'Ship From',
+};
+const EDI_PARTY_BADGE_CSS = {
+  'BY': 'fc-party-group-title-by', 'ST': 'fc-party-group-title-st',
+  'SE': 'fc-party-group-title-se', 'RE': 'fc-party-group-title-re',
+};
+
+function fcBuildFieldRow(col, sampleVal) {
+  const row = document.createElement('div');
+  row.className = 'fc-field-row';
+  row.dataset.col = col;
+  const display = sampleVal ? (sampleVal.length > 30 ? sampleVal.slice(0, 30) + '...' : sampleVal) : '';
+  row.innerHTML = `
+    <input type="checkbox" class="fc-check" checked title="Include this field">
+    <div class="fc-field-name">${escapeHtml(col)}</div>
+    <span class="fc-arrow">&rarr;</span>
+    <input type="text" class="fc-rename-input" placeholder="keep name" title="Rename to (leave empty to keep)">
+    <span class="fc-sample" title="${escapeAttr(sampleVal || '')}">${escapeHtml(display)}</span>
+  `;
+  row.querySelector('.fc-check').addEventListener('change', function() {
+    row.classList.toggle('excluded', !this.checked);
+  });
+  return row;
+}
+
+function fcSelectAll(listId) {
+  document.querySelectorAll('#' + listId + ' .fc-check').forEach(cb => {
+    cb.checked = true; cb.closest('.fc-field-row').classList.remove('excluded');
+  });
+}
+function fcSelectNone(listId) {
+  document.querySelectorAll('#' + listId + ' .fc-check').forEach(cb => {
+    cb.checked = false; cb.closest('.fc-field-row').classList.add('excluded');
+  });
+}
+
+function renderFieldConfigurator(headers) {
+  const section = document.getElementById('field-config-section');
+  const itemsList = document.getElementById('fc-items-list');
+  const headerList = document.getElementById('fc-header-list');
+  const partiesContainer = document.getElementById('fc-parties-container');
+  const computedList = document.getElementById('fc-computed-list');
+
+  // Only show for EDI uploads that have documentInfo
+  const isEdi = currentDirection.startsWith('edi_') && window.lastEdiParsed && window.lastEdiParsed.documentInfo;
+  if (!isEdi) {
+    section.classList.add('hidden');
+    return;
+  }
+
+  section.classList.remove('hidden');
+  itemsList.innerHTML = '';
+  headerList.innerHTML = '';
+  partiesContainer.innerHTML = '';
+  computedList.innerHTML = '';
+
+  const info = window.lastEdiParsed.documentInfo;
+
+  // Get sample values for items
+  const itemSample = {};
+  if (window.lastEdiParsed.rows && window.lastEdiParsed.rows[0] && window.lastEdiParsed.headers) {
+    window.lastEdiParsed.headers.forEach((h, i) => { itemSample[h] = window.lastEdiParsed.rows[0][i] || ''; });
+  }
+
+  // Items tab
+  headers.forEach(col => {
+    itemsList.appendChild(fcBuildFieldRow(col, itemSample[col] || ''));
+  });
+
+  // Header tab
+  const hdr = info.header || {};
+  Object.entries(hdr).forEach(([key, val]) => {
+    headerList.appendChild(fcBuildFieldRow(key, String(val || '')));
+  });
+
+  // Parties tab — one group per entity
+  const parties = info.parties || {};
+  Object.entries(parties).forEach(([entity, fields]) => {
+    const group = document.createElement('div');
+    group.className = 'fc-party-group';
+    const label = EDI_PARTY_LABELS[entity] || entity;
+    const badgeCss = EDI_PARTY_BADGE_CSS[entity] || 'fc-party-group-title-default';
+
+    // Party-level include checkbox
+    group.innerHTML = `
+      <div class="fc-party-check-row">
+        <input type="checkbox" class="fc-party-include" checked data-entity="${escapeAttr(entity)}">
+        <label><span class="fc-party-group-title ${badgeCss}">${escapeHtml(label)} (${escapeHtml(entity)})</span></label>
+      </div>
+    `;
+    const fieldList = document.createElement('div');
+    fieldList.className = 'fc-field-list';
+    fieldList.id = 'fc-party-' + entity;
+    fieldList.style.marginLeft = '28px';
+    Object.entries(fields).forEach(([key, val]) => {
+      fieldList.appendChild(fcBuildFieldRow(key, String(val || '')));
+    });
+    group.appendChild(fieldList);
+
+    // Toggle all fields when party checkbox changes
+    group.querySelector('.fc-party-include').addEventListener('change', function() {
+      fieldList.querySelectorAll('.fc-check').forEach(cb => {
+        cb.checked = this.checked;
+        cb.closest('.fc-field-row').classList.toggle('excluded', !this.checked);
+      });
+      fieldList.style.opacity = this.checked ? '1' : '0.35';
+    });
+
+    partiesContainer.appendChild(group);
+  });
+
+  // Reset to Items tab
+  document.querySelectorAll('.fc-tab-btn[data-fctab]').forEach(b => b.classList.remove('active'));
+  document.querySelector('.fc-tab-btn[data-fctab="items"]').classList.add('active');
+  document.querySelectorAll('.fc-tab-content').forEach(t => t.classList.add('hidden'));
+  document.getElementById('fc-tab-items').classList.remove('hidden');
+}
+
+// Add Computed Field
+let fcComputedCounter = 0;
+document.getElementById('fc-add-computed').addEventListener('click', () => {
+  const id = ++fcComputedCounter;
+  const row = document.createElement('div');
+  row.className = 'fc-computed-row';
+  row.id = 'fc-computed-' + id;
+  row.innerHTML = `
+    <input type="text" class="fc-computed-name" placeholder="field name (e.g. total)">
+    <span style="color:var(--gray-400);font-weight:600">=</span>
+    <input type="text" class="fc-computed-expr" placeholder="expression (e.g. quantity_ordered * unit_price)">
+    <button type="button" class="fc-btn-remove" title="Remove">&times;</button>
+  `;
+  row.querySelector('.fc-btn-remove').addEventListener('click', () => row.remove());
+  document.getElementById('fc-computed-list').appendChild(row);
+  row.querySelector('.fc-computed-name').focus();
+});
+
+// Build field_config JSON from the FC UI (called at convert time)
+function buildFieldConfig() {
+  const config = {};
+
+  // Header config
+  const headerExclude = [];
+  const headerRename = {};
+  document.querySelectorAll('#fc-header-list .fc-field-row').forEach(row => {
+    const col = row.dataset.col;
+    const included = row.querySelector('.fc-check').checked;
+    const renameTo = row.querySelector('.fc-rename-input').value.trim();
+    if (!included) headerExclude.push(col);
+    else if (renameTo && renameTo !== col) headerRename[col] = renameTo;
+  });
+  if (headerExclude.length || Object.keys(headerRename).length) {
+    config.header = { exclude: headerExclude, rename: headerRename };
+  }
+
+  // Parties config
+  const partiesExclude = [];
+  const partiesRename = {};
+  const excludeParties = [];
+  document.querySelectorAll('.fc-party-include').forEach(cb => {
+    if (!cb.checked) excludeParties.push(cb.dataset.entity);
+  });
+  document.querySelectorAll('#fc-parties-container .fc-field-row').forEach(row => {
+    const col = row.dataset.col;
+    const included = row.querySelector('.fc-check').checked;
+    const renameTo = row.querySelector('.fc-rename-input').value.trim();
+    if (!included && !partiesExclude.includes(col)) partiesExclude.push(col);
+    else if (renameTo && renameTo !== col) partiesRename[col] = renameTo;
+  });
+  if (partiesExclude.length || Object.keys(partiesRename).length || excludeParties.length) {
+    config.parties = { exclude: partiesExclude, rename: partiesRename, exclude_parties: excludeParties };
+  }
+
+  // Items config
+  const itemsExclude = [];
+  const itemsRename = {};
+  document.querySelectorAll('#fc-items-list .fc-field-row').forEach(row => {
+    const col = row.dataset.col;
+    const included = row.querySelector('.fc-check').checked;
+    const renameTo = row.querySelector('.fc-rename-input').value.trim();
+    if (!included) itemsExclude.push(col);
+    else if (renameTo && renameTo !== col) itemsRename[col] = renameTo;
+  });
+  if (itemsExclude.length || Object.keys(itemsRename).length) {
+    config.items = { exclude: itemsExclude, rename: itemsRename };
+  }
+
+  return Object.keys(config).length ? config : null;
 }
 
 // ---- Add Variable ----
@@ -1935,6 +2400,9 @@ $btnConvert.addEventListener('click', async () => {
     const ts = document.getElementById('opt-edi-transaction-set').value;
     if (ts) formData.append('transaction_set', ts);
     formData.append('include_envelope', document.getElementById('opt-edi-envelope').checked);
+    // No-code field configuration (exclude/rename for header, parties, items)
+    const fieldConfig = buildFieldConfig();
+    if (fieldConfig) formData.append('field_config', JSON.stringify(fieldConfig));
     if (currentDirection === 'edi_to_csv') {
       formData.append('delimiter', document.getElementById('opt-edi-csv-delimiter').value || ',');
       formData.append('quote_data', document.getElementById('opt-edi-csv-quote-data').checked);

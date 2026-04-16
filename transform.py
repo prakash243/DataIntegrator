@@ -378,3 +378,24 @@ def apply_rules(row):
     row['product_part_count'] = len(parts)
 
     return row
+
+
+counter = {'n': 0}                                                                                                                                          
+uom_map = {'EA': 'Each', 'CS': 'Case', 'BX': 'Box', 'PK': 'Pack'}
+                                                                                                                                                            
+def apply_rules(row):
+    qty = int(row['quantity_ordered'])                                                                                                                      
+    price = float(row['unit_price'])                      
+                                                                                                                                                            
+    row['product_id'] = str(row['product_id']).strip().upper()
+    row['description'] = str(row['description']).strip()                                                                                                    
+    counter['n'] += 1                                     
+    row['item_no'] = counter['n']                                                                                                                           
+    row['qty'] = qty
+    row['price'] = price                                                                                                                                    
+    row['line_total'] = round(qty * price, 2)             
+    row['unit'] = uom_map.get(row.get('unit_of_measure', ''), 'Each')
+    row['currency'] = 'USD'                                                                                                                                 
+
+    order = ['item_no', 'product_id', 'description', 'qty', 'unit', 'price', 'line_total', 'currency']                                                      
+    return {k: row.get(k, '') for k in order}

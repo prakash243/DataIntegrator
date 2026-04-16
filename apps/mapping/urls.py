@@ -11,8 +11,9 @@ urlpatterns = [
     path("file/edi-to-json/", views_file.FileUploadEdiToJsonView.as_view(), name="file-edi-to-json"),
     path("file/edi-to-csv/", views_file.FileUploadEdiToCsvView.as_view(), name="file-edi-to-csv"),
 
-    # EDI schema info
+    # EDI schema info & preview
     path("file/edi-schemas/", views_file.EdiSchemaListView.as_view(), name="edi-schemas"),
+    path("file/edi-preview/", views_file.EdiPreviewView.as_view(), name="edi-preview"),
 
     # Conversion job management
     path("file/jobs/", views_file.ConversionJobListView.as_view(), name="job-list"),

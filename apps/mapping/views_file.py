@@ -285,6 +285,15 @@ class FileUploadEdiToJsonView(APIView):
         transaction_set = request.data.get("transaction_set", "").strip()
         include_envelope = request.data.get("include_envelope", "true").lower() in ("true", "1", "yes")
 
+        # No-code field configuration (exclude/rename for header, parties, items)
+        field_config_raw = request.data.get("field_config", "").strip()
+        field_config = {}
+        if field_config_raw:
+            try:
+                field_config = json.loads(field_config_raw)
+            except (json.JSONDecodeError, TypeError):
+                pass
+
         job = ConversionJob.objects.create(
             direction="edi_to_json",
             input_filename=filename,
@@ -306,6 +315,7 @@ class FileUploadEdiToJsonView(APIView):
                 rules_code=rules_code,
                 transaction_set=transaction_set or None,
                 include_envelope=include_envelope,
+                field_config=field_config,
             )
 
             base_name = os.path.splitext(filename)[0]
@@ -607,6 +617,63 @@ class EdiSchemaListView(APIView):
         from .maps.edi_parser import list_schemas
         schemas = list_schemas()
         return Response({"schemas": schemas})
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class EdiPreviewView(APIView):
+    """
+    Upload an EDI file and return a parsed preview with schema-mapped field names.
+
+    POST /api/mapping/file/edi-preview/
+    Content-Type: multipart/form-data
+
+    Returns the full document structure (header, parties, line_items) with
+    human-readable field names from the schema, for use by the frontend
+    Field Configurator and structured document preview.
+    """
+
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        from .maps.edi_parser import parse_edi
+
+        uploaded_file = request.FILES.get("file")
+        if not uploaded_file:
+            return Response({"error": "No file uploaded."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        ext = os.path.splitext(uploaded_file.name)[1].lower()
+        if ext not in (".edi", ".x12", ".txt"):
+            return Response(
+                {"error": f"Invalid file type '{ext}'. Expected .edi, .x12, or .txt"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            content = uploaded_file.read().decode("utf-8")
+            transaction_set = request.data.get("transaction_set", "").strip() or None
+
+            parsed = parse_edi(
+                content,
+                transaction_set=transaction_set,
+                include_envelope=True,
+                mode="items",
+            )
+
+            return Response({
+                "status": "ok",
+                "header": parsed["header"],
+                "parties": parsed["parties"],
+                "line_items": parsed["rows"],
+                "transaction_set": parsed["transaction_set"],
+                "schema_name": parsed["schema_name"],
+                "segment_count": parsed["segment_count"],
+                "logs": parsed["logs"],
+            })
+        except Exception as exc:
+            logger.exception("EDI preview failed")
+            return Response({"error": str(exc)},
+                            status=status.HTTP_400_BAD_REQUEST)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
